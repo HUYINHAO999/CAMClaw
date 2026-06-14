@@ -10,6 +10,7 @@ add_library(camclaw_core
     src/AgentPlanDraft.cpp
     src/AgentPlanDraftJsonCodec.cpp
     src/AgentPlanExecutor.cpp
+    src/AgentPlanExecutionResultJsonCodec.cpp
     src/AgentWorkflowService.cpp
     src/PlanDraftFactory.cpp
     src/SkillRuntime.cpp
@@ -109,3 +110,25 @@ target_link_libraries(camclaw_agent_plan_draft_json_codec_tests
 )
 
 add_test(NAME camclaw_agent_plan_draft_json_codec_tests COMMAND camclaw_agent_plan_draft_json_codec_tests)
+
+add_executable(camclaw_python_backend_draft_to_cpp_execution_tests
+    tests/test_python_backend_draft_to_cpp_execution.cpp
+)
+
+target_link_libraries(camclaw_python_backend_draft_to_cpp_execution_tests
+    PRIVATE
+        camclaw_core
+)
+
+add_test(NAME camclaw_python_backend_draft_to_cpp_execution_tests COMMAND camclaw_python_backend_draft_to_cpp_execution_tests)
+
+add_executable(camclaw_agent_plan_execution_result_json_codec_tests
+    tests/test_agent_plan_execution_result_json_codec.cpp
+)
+
+target_link_libraries(camclaw_agent_plan_execution_result_json_codec_tests
+    PRIVATE
+        camclaw_core
+)
+
+add_test(NAME camclaw_agent_plan_execution_result_json_codec_tests COMMAND camclaw_agent_plan_execution_result_json_codec_tests)
