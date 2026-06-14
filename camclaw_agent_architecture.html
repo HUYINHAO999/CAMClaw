@@ -1,0 +1,825 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CAMClaw Agent 架构图</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --paper: #ffffff;
+      --ink: #17202a;
+      --muted: #667085;
+      --line: #cfd8e3;
+      --blue: #2563eb;
+      --cyan: #0891b2;
+      --green: #16a34a;
+      --amber: #d97706;
+      --red: #dc2626;
+      --violet: #7c3aed;
+      --slate: #475569;
+      --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      line-height: 1.55;
+    }
+
+    header {
+      padding: 28px 36px 20px;
+      background: #101828;
+      color: #fff;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 30px;
+      letter-spacing: 0;
+    }
+
+    header p {
+      max-width: 980px;
+      margin: 10px 0 0;
+      color: #d0d5dd;
+      font-size: 15px;
+    }
+
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 10px 36px;
+      background: rgba(255, 255, 255, 0.94);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(8px);
+    }
+
+    nav a {
+      color: #344054;
+      text-decoration: none;
+      padding: 6px 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      font-size: 13px;
+      background: #fff;
+    }
+
+    main {
+      padding: 28px 36px 60px;
+      max-width: 1520px;
+      margin: 0 auto;
+    }
+
+    section {
+      margin: 0 0 28px;
+      padding: 24px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: 22px;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+
+    .note {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .diagram {
+      overflow-x: auto;
+      padding: 4px 0 10px;
+    }
+
+    .overview-grid {
+      min-width: 1220px;
+      display: grid;
+      grid-template-columns: 210px 56px 230px 56px 240px 56px 230px 56px 230px;
+      gap: 0;
+      align-items: center;
+    }
+
+    .bypass-grid {
+      min-width: 1180px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .swimlane-diagram {
+      min-width: 1180px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .swimlane {
+      position: relative;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .swimlane h3 {
+      margin: 0 0 14px;
+      color: #344054;
+      font-size: 15px;
+    }
+
+    .lane-flow-5 {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(170px, 1fr));
+      gap: 34px;
+      align-items: stretch;
+    }
+
+    .lane-flow-4 {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(190px, 1fr));
+      gap: 42px;
+      align-items: stretch;
+    }
+
+    .lane-card {
+      position: relative;
+      min-height: 86px;
+      padding: 13px 14px;
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--slate);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .lane-card strong {
+      display: block;
+      font-size: 15px;
+      line-height: 1.35;
+    }
+
+    .lane-card span {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .lane-card::after {
+      content: "→";
+      position: absolute;
+      right: -31px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #2563eb;
+      font-size: 30px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .lane-card:last-child::after {
+      display: none;
+    }
+
+    .reuse-note {
+      position: relative;
+      min-height: 86px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2px 22px;
+    }
+
+    .reuse-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border: 2px solid #fb923c;
+      border-radius: 8px;
+      background: #fff7ed;
+      color: #9a3412;
+      font-weight: 700;
+      white-space: nowrap;
+      box-shadow: 0 8px 20px rgba(234, 88, 12, 0.12);
+    }
+
+    .reuse-arrow {
+      display: inline-block;
+      margin-right: 8px;
+      color: #ea580c;
+      font-size: 34px;
+      line-height: 0.8;
+      vertical-align: -4px;
+    }
+
+    .support-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(240px, 1fr));
+      gap: 12px;
+    }
+
+    .track {
+      display: grid;
+      grid-template-columns: 230px 46px 250px 46px 250px 46px 250px;
+      gap: 0;
+      align-items: center;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .track-title {
+      grid-column: 1 / -1;
+      margin: 0 0 12px;
+      color: #344054;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .support-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .trace-band {
+      padding: 14px 16px;
+      border: 1px solid #b2ddff;
+      border-left: 5px solid var(--blue);
+      border-radius: 8px;
+      background: #eff8ff;
+      color: #1849a9;
+      font-size: 14px;
+    }
+
+    .trace-band strong {
+      display: block;
+      margin-bottom: 4px;
+      color: #101828;
+    }
+
+    .lane {
+      display: grid;
+      gap: 12px;
+    }
+
+    .card {
+      min-height: 66px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--slate);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .card strong {
+      display: block;
+      font-size: 15px;
+      line-height: 1.35;
+    }
+
+    .card span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .blue { border-left-color: var(--blue); }
+    .cyan { border-left-color: var(--cyan); }
+    .green { border-left-color: var(--green); }
+    .amber { border-left-color: var(--amber); }
+    .red { border-left-color: var(--red); }
+    .violet { border-left-color: var(--violet); }
+
+    .arrow {
+      height: 2px;
+      background: var(--line);
+      position: relative;
+      margin: 0 12px;
+    }
+
+    .arrow::after {
+      content: "";
+      position: absolute;
+      right: -1px;
+      top: -5px;
+      width: 0;
+      height: 0;
+      border-top: 6px solid transparent;
+      border-bottom: 6px solid transparent;
+      border-left: 9px solid var(--line);
+    }
+
+    .stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .flow {
+      min-width: 1160px;
+      display: grid;
+      grid-template-columns: repeat(8, minmax(120px, 1fr));
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .step {
+      position: relative;
+      padding: 14px 12px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      min-height: 120px;
+    }
+
+    .step::after {
+      content: "";
+      position: absolute;
+      right: -13px;
+      top: 50%;
+      transform: translateY(-50%);
+      border-top: 7px solid transparent;
+      border-bottom: 7px solid transparent;
+      border-left: 9px solid #98a2b3;
+    }
+
+    .step:last-child::after {
+      display: none;
+    }
+
+    .num {
+      display: inline-flex;
+      width: 24px;
+      height: 24px;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: #101828;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .step h3 {
+      margin-top: 10px;
+      font-size: 15px;
+    }
+
+    .step p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+      gap: 18px;
+    }
+
+    .model-grid {
+      min-width: 1100px;
+      display: grid;
+      grid-template-columns: 260px 300px 300px 300px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .entity {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    .entity h3 {
+      margin: 0;
+      padding: 10px 12px;
+      background: #f2f4f7;
+      border-bottom: 1px solid var(--line);
+      font-size: 15px;
+    }
+
+    .entity ul {
+      list-style: none;
+      padding: 10px 12px;
+      margin: 0;
+      color: #344054;
+      font-size: 13px;
+    }
+
+    .entity li + li {
+      margin-top: 4px;
+    }
+
+    code {
+      font-family: Consolas, "SFMono-Regular", monospace;
+      font-size: 0.95em;
+      color: #1d4ed8;
+    }
+
+    .matrix {
+      min-width: 980px;
+      display: grid;
+      grid-template-columns: repeat(7, minmax(120px, 1fr));
+      gap: 10px;
+    }
+
+    .group {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .group h3 {
+      font-size: 14px;
+      color: #101828;
+      border-bottom: 1px solid #eaecf0;
+      padding-bottom: 8px;
+    }
+
+    .group ul {
+      margin: 0;
+      padding-left: 18px;
+      color: #344054;
+      font-size: 12px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .legend i {
+      display: inline-block;
+      width: 11px;
+      height: 11px;
+      border-radius: 2px;
+      margin-right: 5px;
+      vertical-align: -1px;
+    }
+
+    .decision-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(180px, 1fr));
+      gap: 14px;
+    }
+
+    .rule {
+      padding: 14px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .rule b {
+      display: block;
+      margin-bottom: 6px;
+      color: #101828;
+    }
+
+    .rule p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 900px) {
+      header,
+      nav,
+      main {
+        padding-left: 16px;
+        padding-right: 16px;
+      }
+
+      .two-col,
+      .decision-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      nav {
+        display: none;
+      }
+
+      section {
+        box-shadow: none;
+        break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>CAMClaw Agent 架构图</h1>
+    <p>根据 draft.md 整理并修正。重点是区分轻量 UI 交互和 CAM 业务命令：普通界面交互留在 UI 层，真正改变 CAM 状态的命令进入 Console / Action 调度层；Agent / MCP / 受控脚本通过标准 Action Request、Gateway 和 Adapter 接入同一个命令入口。</p>
+  </header>
+
+  <nav>
+    <a href="#overview">总览</a>
+    <a href="#flow">执行链路</a>
+    <a href="#model">Canonical Model</a>
+    <a href="#actions">V1 Action</a>
+    <a href="#schema">参数扩展</a>
+    <a href="#rules">关键规则</a>
+  </nav>
+
+  <main>
+    <section id="overview">
+      <h2>1. 总体架构</h2>
+      <p class="note">读图方式：上方是普通 UI 到 CAM 命令入口的主链路；下方是 Agent 旁路。轻量 UI 交互不进入 Agent Gateway，Agent 也不绕过 Console 直连 Core。Trace 是横切能力，贯穿从 LLM 到客户端反馈的全过程。</p>
+      <div class="diagram">
+        <div class="swimlane-diagram">
+          <div class="swimlane">
+            <h3>UI / CAM 主链路：轻量交互留在 UI，业务命令进入 Console</h3>
+            <div class="lane-flow-5">
+              <div class="lane-card blue"><strong>Qt UI / Interaction Layer</strong><span>菜单、功能树、参数面板、Viewport；悬停、展开、视角旋转等轻量交互在此结束</span></div>
+              <div class="lane-card violet"><strong>CAM Command Console</strong><span>统一承接会改变 CAM 状态的命令：创建工序、改参数、生成刀轨等</span></div>
+              <div class="lane-card violet"><strong>Action Dispatcher / Command Bus</strong><span>命令调度、撤销、业务服务、刀轨服务</span></div>
+              <div class="lane-card violet"><strong>CAM Core</strong><span>真实 CAM 业务逻辑、工序、刀具、刀轨计算</span></div>
+              <div class="lane-card violet"><strong>Canonical Model / Repository</strong><span>稳定对象 ID、真实几何、刀轨、预览网格</span></div>
+            </div>
+          </div>
+
+          <div class="reuse-note">
+            <span class="reuse-pill"><span class="reuse-arrow">↗</span>Adapter 回接 CAM Command Console，不绕过 Console 直连 CAM Core</span>
+          </div>
+
+          <div class="swimlane">
+            <h3>Agent 旁路扩展：只开放受控能力，经过安全边界后接回 CAM Command Console</h3>
+            <div class="lane-flow-5">
+              <div class="lane-card cyan"><strong>Prompt / MCP / Script</strong><span>自然语言、MCP 分组工具、受控 cam.* 脚本</span></div>
+              <div class="lane-card cyan"><strong>Agent Planner</strong><span>理解意图，结合 Manifest / RAG / Template 选择 action</span></div>
+              <div class="lane-card green"><strong>Agent Action Request</strong><span>标准工单：request_id、trace_id、action_id、args、source</span></div>
+              <div class="lane-card amber"><strong>Agent Action Gateway</strong><span>Registry、Schema、Validator、Human in loop</span></div>
+              <div class="lane-card amber"><strong>Action Adapter / Facade</strong><span>把受控 action 映射到 CAM Command Console</span></div>
+            </div>
+          </div>
+
+          <div class="support-strip">
+            <div class="card cyan"><strong>Manifest / RAG / Template</strong><span>支撑 Agent Planner，不直接执行业务</span></div>
+            <div class="card amber"><strong>Schema / Pydantic</strong><span>约束 Action Request 和参数草案</span></div>
+            <div class="card green"><strong>Logs / Undo / Audit</strong><span>命令日志和撤销体系可与 trace_id 串联</span></div>
+          </div>
+
+          <div class="trace-band">
+            <strong>Trace Service 是横切链路，不属于单独某一层</strong>
+            覆盖 Prompt / MCP / Script、LLM plan、Action Request、校验结果、用户确认、Adapter 调用、CAM 执行结果、UI 反馈和错误信息。
+          </div>
+        </div>
+      </div>
+      <div class="legend">
+        <span><i style="background: var(--blue)"></i>已有 UI</span>
+        <span><i style="background: var(--cyan)"></i>Agent 规划</span>
+        <span><i style="background: var(--green)"></i>Trace / 标准请求</span>
+        <span><i style="background: var(--amber)"></i>Agent 安全边界与 Adapter</span>
+        <span><i style="background: var(--violet)"></i>既有 CAM 系统</span>
+      </div>
+    </section>
+
+    <section id="flow">
+      <h2>2. Action 执行链路</h2>
+      <p class="note">这是 Agent 旁路的运行时流程。普通 UI 轻量交互不走这里；Agent、MCP、受控脚本要改变 CAM 状态时，先变成标准 Action Request，再通过 Adapter 接回 CAM Command Console。</p>
+      <div class="diagram">
+        <div class="flow">
+          <div class="step"><span class="num">1</span><h3>Trace 开始</h3><p>从 Prompt / MCP / 脚本入口创建 trace_id。</p></div>
+          <div class="step"><span class="num">2</span><h3>Agent 规划</h3><p>LLM 根据 Manifest 选择 action，结合 RAG 和模板生成草案。</p></div>
+          <div class="step"><span class="num">3</span><h3>Action Request</h3><p>形成标准工单：request_id、trace_id、action_id、args、source。</p></div>
+          <div class="step"><span class="num">4</span><h3>Gateway 调度</h3><p>Agent Action Gateway 查 Registry 和 Schema。</p></div>
+          <div class="step"><span class="num">5</span><h3>Validator</h3><p>判断当前 CAM 状态：可执行、阻塞、缺参数、需确认。</p></div>
+          <div class="step"><span class="num">6</span><h3>Human in loop</h3><p>按 low / high 风险使用不同确认体验。</p></div>
+          <div class="step"><span class="num">7</span><h3>Adapter / Facade</h3><p>把受控 action 映射到 CAM Command Console。</p></div>
+          <div class="step"><span class="num">8</span><h3>CAM 命令执行</h3><p>由 Console 进入 Command Bus、CAM Core、Undo、日志和 UI 反馈。</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="model">
+      <h2>3. Canonical CAM Model</h2>
+      <p class="note">Canonical Model 只保存稳定引用和轻量状态；真实几何、形状、预览网格由 Repository 提供。</p>
+      <div class="diagram">
+        <div class="model-grid">
+          <div class="entity">
+            <h3>Project</h3>
+            <ul>
+              <li><code>project_id</code></li>
+              <li><code>unit_system</code></li>
+              <li><code>geometry_objects[]</code></li>
+              <li><code>frames[]</code></li>
+              <li><code>tools[]</code></li>
+              <li><code>operations[]</code></li>
+              <li><code>toolpaths[]</code></li>
+              <li><code>simulation_results[]</code></li>
+            </ul>
+          </div>
+
+          <div class="stack">
+            <div class="entity">
+              <h3>GeometryObject</h3>
+              <ul>
+                <li><code>geom_id</code></li>
+                <li><code>object_type: part / stock</code></li>
+                <li><code>name</code> 仅显示，不作稳定引用</li>
+                <li><code>shape_revision</code></li>
+                <li><code>shape_provider</code></li>
+                <li><code>shape_handle</code></li>
+              </ul>
+            </div>
+            <div class="entity">
+              <h3>GeometrySelection / Feature</h3>
+              <ul>
+                <li><code>geometry_selection_id</code></li>
+                <li><code>geom_id + shape_revision</code></li>
+                <li><code>face_or_edge_refs[]</code></li>
+                <li><code>feature_type</code></li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="stack">
+            <div class="entity">
+              <h3>Tool</h3>
+              <ul>
+                <li><code>tool_id</code></li>
+                <li><code>category: mill / drill / lathe</code></li>
+                <li><code>schema_id</code></li>
+                <li><code>schema_version</code></li>
+                <li><code>parameters</code></li>
+              </ul>
+            </div>
+            <div class="entity">
+              <h3>Frame / MachineConfig</h3>
+              <ul>
+                <li><code>Frame.matrix_3x4</code></li>
+                <li>不单独存 origin / axes</li>
+                <li><code>machine_type</code></li>
+                <li><code>axis_count</code></li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="stack">
+            <div class="entity">
+              <h3>Operation</h3>
+              <ul>
+                <li><code>operation_id</code></li>
+                <li><code>operation_type</code></li>
+                <li><code>geometry_selection_id</code></li>
+                <li><code>tool_id</code> / <code>frame_id</code></li>
+                <li><code>parameter_set_id</code></li>
+                <li><code>input_state</code></li>
+                <li><code>toolpath_state</code></li>
+                <li><code>simulation_state</code></li>
+              </ul>
+            </div>
+            <div class="entity">
+              <h3>ParameterSet / Toolpath</h3>
+              <ul>
+                <li><code>schema_id + schema_version</code></li>
+                <li><code>values</code></li>
+                <li><code>toolpath_id</code></li>
+                <li><code>simulation_result_id</code></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="actions">
+      <h2>4. V1 Command Registry</h2>
+      <p class="note">MCP 层可以按组暴露工具，内部通过 <code>action</code> 字段分发。复杂能力放到 Skill 组合，不塞进基础接口。</p>
+      <div class="diagram">
+        <div class="matrix">
+          <div class="group">
+            <h3>cam_context</h3>
+            <ul>
+              <li>GetProjectInfo</li>
+              <li>GetCurrentSelection</li>
+            </ul>
+          </div>
+          <div class="group">
+            <h3>cam_geometry</h3>
+            <ul>
+              <li>GetGeometryObject</li>
+              <li>CreateGeometrySelection</li>
+              <li>GetGeometrySelection</li>
+              <li>GetFeatures</li>
+            </ul>
+          </div>
+          <div class="group">
+            <h3>cam_tools</h3>
+            <ul>
+              <li>GetToolLibrary</li>
+              <li>GetTool</li>
+              <li>CreateTool</li>
+            </ul>
+          </div>
+          <div class="group">
+            <h3>cam_operations</h3>
+            <ul>
+              <li>GetOperationTree</li>
+              <li>GetOperation</li>
+              <li>CreateOperation</li>
+              <li>UpdateOperation</li>
+              <li>DeleteOperation</li>
+              <li>ValidateOperation</li>
+              <li>RecommendOperations</li>
+              <li>DraftOperationParameters</li>
+            </ul>
+          </div>
+          <div class="group">
+            <h3>cam_toolpath</h3>
+            <ul>
+              <li>GenerateToolpath</li>
+              <li>GetToolpath</li>
+            </ul>
+          </div>
+          <div class="group">
+            <h3>cam_schema</h3>
+            <ul>
+              <li>GetToolSchema</li>
+              <li>GetOperationSchema</li>
+              <li>ValidateParameters</li>
+            </ul>
+          </div>
+          <div class="group">
+            <h3>cam_trace</h3>
+            <ul>
+              <li>GetTrace</li>
+              <li>SearchTrace</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="schema">
+      <h2>5. 参数 Schema 扩展路径</h2>
+      <div class="two-col">
+        <div class="entity">
+          <h3>Source of Truth</h3>
+          <ul>
+            <li><code>schema/*.json</code> 或 <code>schema/*.yaml</code> 是参数定义权威来源。</li>
+            <li>新增刀具参数、工序参数、默认值、校验规则时，优先改 schema。</li>
+            <li>必要时升级 <code>schema_version</code>。</li>
+          </ul>
+        </div>
+        <div class="entity">
+          <h3>Schema 驱动的下游</h3>
+          <ul>
+            <li>Python Agent 层：生成 Pydantic 模型。</li>
+            <li>C++/Qt Core：生成或同步 ParameterValidator。</li>
+            <li>UI：参数面板按 schema 渲染。</li>
+            <li>Agent：参数草案和模板实例化按 schema 约束。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="rules">
+      <h2>6. 架构边界和安全规则</h2>
+      <div class="decision-grid">
+        <div class="rule"><b>LLM 负责</b><p>理解意图、选择 action、生成参数草案、解释推荐原因。</p></div>
+        <div class="rule"><b>LLM 不负责</b><p>不直接调用 CAM Core，不绕过 Gateway / Adapter，不执行任意 Python / 系统命令。</p></div>
+        <div class="rule"><b>Validator 负责</b><p>每个 action 自己判断当前状态能不能执行，例如工序是否存在、刀具是否绑定。</p></div>
+        <div class="rule"><b>Agent Gateway 负责</b><p>只管理 Agent/MCP/脚本自动化入口，不接管鼠标悬停、面板展开、视角旋转等轻量 UI 交互。</p></div>
+        <div class="rule"><b>Human in loop</b><p>V1 区分 low / high，不同风险使用不同确认体验。</p></div>
+        <div class="rule"><b>稳定引用</b><p>Agent 不能用 UI 显示名、树路径、模糊文字直接执行，必须解析到 object_id。</p></div>
+        <div class="rule"><b>Adapter / Facade</b><p>把受控 action 映射到 CAM Command Console，避免 Agent 绕过命令调度直连 Core。</p></div>
+        <div class="rule"><b>Trace Service</b><p>横切记录从 LLM 到客户端反馈的全过程，并可与命令日志通过 trace_id 串联。</p></div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
