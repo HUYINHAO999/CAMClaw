@@ -9,6 +9,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_library(camclaw_core
     src/AgentPlanDraft.cpp
     src/AgentPlanExecutor.cpp
+    src/AgentPlanner.cpp
     src/AgentWorkflowService.cpp
     src/PlanDraftFactory.cpp
     src/SkillRuntime.cpp
@@ -97,3 +98,25 @@ target_link_libraries(camclaw_repository_tests
 )
 
 add_test(NAME camclaw_repository_tests COMMAND camclaw_repository_tests)
+
+add_executable(camclaw_agent_planner_tests
+    tests/test_agent_planner.cpp
+)
+
+target_link_libraries(camclaw_agent_planner_tests
+    PRIVATE
+        camclaw_core
+)
+
+add_test(NAME camclaw_agent_planner_tests COMMAND camclaw_agent_planner_tests)
+
+add_executable(camclaw_agent_end_to_end_tests
+    tests/test_agent_end_to_end.cpp
+)
+
+target_link_libraries(camclaw_agent_end_to_end_tests
+    PRIVATE
+        camclaw_core
+)
+
+add_test(NAME camclaw_agent_end_to_end_tests COMMAND camclaw_agent_end_to_end_tests)

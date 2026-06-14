@@ -99,6 +99,35 @@ static int repository_type_overrides_request_type_hint()
     return EXIT_SUCCESS;
 }
 
+static int invalid_numeric_arguments_are_blocked_before_console()
+{
+    camclaw::Repository repository;
+    repository.save(camclaw::CamObject("feature_001", camclaw::ObjectType::Feature, "型腔 A"));
+    camclaw::BrowserConsole browser_console(repository);
+    camclaw::ActionGateway gateway(repository, browser_console);
+
+    camclaw::ConsoleCommandRequest request;
+    request.command_id = "browser.create_roughing_operation";
+    request.source = "script";
+    request.trace_id = "trace_script_004";
+    request.target_object_id = "feature_001";
+    request.args["operation_type"] = "roughing";
+    request.args["tool_id"] = "tool_010";
+    request.args["stepover"] = "-2.0";
+    request.args["stepdown"] = "1.0";
+    request.args["tolerance"] = "0.02";
+
+    const camclaw::ConsoleCommandResult result = gateway.dispatch(request);
+
+    REQUIRE_TRUE(!result.ok);
+    REQUIRE_EQ(std::string("invalid_argument"), result.error_code);
+    REQUIRE_TRUE(!repository.exists("op_roughing_feature_001"));
+    REQUIRE_TRUE(contains_event(result.trace_events, "gateway_rejected"));
+    REQUIRE_TRUE(!contains_event(result.trace_events, "browser_console_dispatched"));
+
+    return EXIT_SUCCESS;
+}
+
 static int default_registry_matches_browser_console_support()
 {
     camclaw::Repository repository;
@@ -123,6 +152,11 @@ int main()
     }
 
     status = repository_type_overrides_request_type_hint();
+    if (status != EXIT_SUCCESS) {
+        return status;
+    }
+
+    status = invalid_numeric_arguments_are_blocked_before_console();
     if (status != EXIT_SUCCESS) {
         return status;
     }

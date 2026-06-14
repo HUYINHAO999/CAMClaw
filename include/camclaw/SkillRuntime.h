@@ -97,6 +97,9 @@ private:
         const ConsoleCommandRequest& request,
         const CommandSpec& spec,
         std::string& missing_arg) const;
+    bool commandHasValidArgumentValues(
+        const ConsoleCommandRequest& request,
+        std::string& invalid_arg) const;
 
     Repository& repository_;
     BrowserConsole& browser_console_;

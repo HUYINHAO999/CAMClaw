@@ -1,9 +1,36 @@
 #include "camclaw/SkillRuntime.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <sstream>
 
 namespace camclaw {
+
+namespace {
+
+bool parsePositiveNumber(const std::string& value)
+{
+    if (value.empty()) {
+        return false;
+    }
+
+    char* end = 0;
+    const double parsed = std::strtod(value.c_str(), &end);
+    return end != value.c_str() && *end == '\0' && parsed > 0.0;
+}
+
+bool parseTolerance(const std::string& value)
+{
+    if (!parsePositiveNumber(value)) {
+        return false;
+    }
+
+    char* end = 0;
+    const double parsed = std::strtod(value.c_str(), &end);
+    return parsed <= 1.0;
+}
+
+} // namespace
 
 CommandRegistry CommandRegistry::browserDefaults()
 {
@@ -185,6 +212,15 @@ ConsoleCommandResult ActionGateway::dispatch(const ConsoleCommandRequest& reques
         return result;
     }
 
+    std::string invalid_arg;
+    if (!commandHasValidArgumentValues(request, invalid_arg)) {
+        result.error_code = "invalid_argument";
+        result.message = "Command argument is invalid: " + invalid_arg;
+        result.primary_object_id = request.target_object_id;
+        result.trace_events.push_back("gateway_rejected");
+        return result;
+    }
+
     result = browser_console_.execute(request);
     result.trace_events.insert(result.trace_events.begin(), "gateway_validated");
     return result;
@@ -218,6 +254,35 @@ bool ActionGateway::commandHasRequiredArguments(
             missing_arg = spec.required_args[index];
             return false;
         }
+    }
+
+    return true;
+}
+
+bool ActionGateway::commandHasValidArgumentValues(
+    const ConsoleCommandRequest& request,
+    std::string& invalid_arg) const
+{
+    if (request.command_id != "browser.create_roughing_operation") {
+        return true;
+    }
+
+    const std::map<std::string, std::string>::const_iterator stepover = request.args.find("stepover");
+    if (stepover == request.args.end() || !parsePositiveNumber(stepover->second)) {
+        invalid_arg = "stepover";
+        return false;
+    }
+
+    const std::map<std::string, std::string>::const_iterator stepdown = request.args.find("stepdown");
+    if (stepdown == request.args.end() || !parsePositiveNumber(stepdown->second)) {
+        invalid_arg = "stepdown";
+        return false;
+    }
+
+    const std::map<std::string, std::string>::const_iterator tolerance = request.args.find("tolerance");
+    if (tolerance == request.args.end() || !parseTolerance(tolerance->second)) {
+        invalid_arg = "tolerance";
+        return false;
     }
 
     return true;
