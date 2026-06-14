@@ -3,7 +3,14 @@
 namespace camclaw {
 
 AgentPlanExecutor::AgentPlanExecutor(SkillRuntime& skill_runtime)
-    : skill_runtime_(skill_runtime)
+    : skill_runtime_(skill_runtime),
+      trace_service_(0)
+{
+}
+
+AgentPlanExecutor::AgentPlanExecutor(SkillRuntime& skill_runtime, TraceService* trace_service)
+    : skill_runtime_(skill_runtime),
+      trace_service_(trace_service)
 {
 }
 
@@ -16,10 +23,16 @@ AgentPlanExecutionResult AgentPlanExecutor::execute(const AgentPlanDraft& draft)
         result.error_code = "draft_not_confirmed";
         result.message = "AgentPlanDraft must be confirmed before execution.";
         result.trace_events.push_back("draft_execution_rejected");
+        if (trace_service_ != 0) {
+            trace_service_->record(draft.traceId(), "draft", "draft_execution_rejected", std::string(), result.message);
+        }
         return result;
     }
 
     result.trace_events.push_back("draft_execution_started");
+    if (trace_service_ != 0) {
+        trace_service_->record(draft.traceId(), "draft", "draft_execution_started", std::string(), "Draft execution started.");
+    }
 
     for (std::size_t index = 0; index < draft.stepCount(); ++index) {
         SkillDefinition skill;
@@ -28,6 +41,9 @@ AgentPlanExecutionResult AgentPlanExecutor::execute(const AgentPlanDraft& draft)
             result.error_code = "unsupported_skill";
             result.message = "AgentPlanDraft contains an unsupported Skill.";
             result.trace_events.push_back("draft_execution_failed");
+            if (trace_service_ != 0) {
+                trace_service_->record(draft.traceId(), "draft", "draft_execution_failed", std::string(), result.message);
+            }
             return result;
         }
 
@@ -45,6 +61,9 @@ AgentPlanExecutionResult AgentPlanExecutor::execute(const AgentPlanDraft& draft)
             result.primary_object_id = skill_result.primary_object_id;
             result.object_ids.insert(result.object_ids.end(), skill_result.object_ids.begin(), skill_result.object_ids.end());
             result.trace_events.push_back("draft_execution_failed");
+            if (trace_service_ != 0) {
+                trace_service_->record(draft.traceId(), "draft", "draft_execution_failed", result.primary_object_id, result.message);
+            }
             return result;
         }
 
@@ -56,6 +75,9 @@ AgentPlanExecutionResult AgentPlanExecutor::execute(const AgentPlanDraft& draft)
 
     result.ok = true;
     result.trace_events.push_back("draft_execution_completed");
+    if (trace_service_ != 0) {
+        trace_service_->record(draft.traceId(), "draft", "draft_execution_completed", result.primary_object_id, "Draft execution completed.");
+    }
     return result;
 }
 

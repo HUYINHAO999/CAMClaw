@@ -14,6 +14,7 @@ add_library(camclaw_core
     src/AgentWorkflowService.cpp
     src/PlanDraftFactory.cpp
     src/SkillRuntime.cpp
+    src/TraceService.cpp
 )
 
 target_include_directories(camclaw_core
@@ -132,3 +133,14 @@ target_link_libraries(camclaw_agent_plan_execution_result_json_codec_tests
 )
 
 add_test(NAME camclaw_agent_plan_execution_result_json_codec_tests COMMAND camclaw_agent_plan_execution_result_json_codec_tests)
+
+add_executable(camclaw_trace_service_tests
+    tests/test_trace_service.cpp
+)
+
+target_link_libraries(camclaw_trace_service_tests
+    PRIVATE
+        camclaw_core
+)
+
+add_test(NAME camclaw_trace_service_tests COMMAND camclaw_trace_service_tests)

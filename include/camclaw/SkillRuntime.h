@@ -2,6 +2,7 @@
 #define CAMCLAW_SKILL_RUNTIME_H
 
 #include "camclaw/AgentWorkflowService.h"
+#include "camclaw/TraceService.h"
 
 #include <map>
 #include <string>
@@ -88,6 +89,11 @@ class ActionGateway {
 public:
     ActionGateway(Repository& repository, BrowserConsole& browser_console);
     ActionGateway(Repository& repository, BrowserConsole& browser_console, const CommandRegistry& registry);
+    ActionGateway(
+        Repository& repository,
+        BrowserConsole& browser_console,
+        const CommandRegistry& registry,
+        TraceService* trace_service);
 
     ConsoleCommandResult dispatch(const ConsoleCommandRequest& request);
     bool registryMatchesConsole() const;
@@ -104,6 +110,7 @@ private:
     Repository& repository_;
     BrowserConsole& browser_console_;
     CommandRegistry registry_;
+    TraceService* trace_service_;
 };
 
 struct SkillCommandStep {
@@ -141,6 +148,7 @@ struct SkillExecutionResult {
 class SkillRuntime {
 public:
     explicit SkillRuntime(ActionGateway& gateway);
+    SkillRuntime(ActionGateway& gateway, TraceService* trace_service);
 
     SkillExecutionResult execute(const SkillDefinition& definition, const SkillExecutionInput& input);
 
@@ -152,6 +160,7 @@ private:
         bool& ok) const;
 
     ActionGateway& gateway_;
+    TraceService* trace_service_;
 };
 
 } // namespace camclaw

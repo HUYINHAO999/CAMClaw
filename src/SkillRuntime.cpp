@@ -172,14 +172,28 @@ ConsoleCommandResult BrowserConsole::generateToolpath(const ConsoleCommandReques
 ActionGateway::ActionGateway(Repository& repository, BrowserConsole& browser_console)
     : repository_(repository),
       browser_console_(browser_console),
-      registry_(CommandRegistry::browserDefaults())
+      registry_(CommandRegistry::browserDefaults()),
+      trace_service_(0)
 {
 }
 
 ActionGateway::ActionGateway(Repository& repository, BrowserConsole& browser_console, const CommandRegistry& registry)
     : repository_(repository),
       browser_console_(browser_console),
-      registry_(registry)
+      registry_(registry),
+      trace_service_(0)
+{
+}
+
+ActionGateway::ActionGateway(
+    Repository& repository,
+    BrowserConsole& browser_console,
+    const CommandRegistry& registry,
+    TraceService* trace_service)
+    : repository_(repository),
+      browser_console_(browser_console),
+      registry_(registry),
+      trace_service_(trace_service)
 {
 }
 
@@ -191,6 +205,9 @@ ConsoleCommandResult ActionGateway::dispatch(const ConsoleCommandRequest& reques
         result.error_code = "unsupported_command";
         result.message = "Command is not registered for controlled execution.";
         result.trace_events.push_back("gateway_rejected");
+        if (trace_service_ != 0) {
+            trace_service_->record(request.trace_id, "gateway", "gateway_rejected", request.target_object_id, result.message);
+        }
         return result;
     }
 
@@ -200,6 +217,9 @@ ConsoleCommandResult ActionGateway::dispatch(const ConsoleCommandRequest& reques
         result.message = "Command target type is not valid.";
         result.primary_object_id = request.target_object_id;
         result.trace_events.push_back("gateway_rejected");
+        if (trace_service_ != 0) {
+            trace_service_->record(request.trace_id, "gateway", "gateway_rejected", request.target_object_id, result.message);
+        }
         return result;
     }
 
@@ -209,6 +229,9 @@ ConsoleCommandResult ActionGateway::dispatch(const ConsoleCommandRequest& reques
         result.message = "Command argument is required: " + missing_arg;
         result.primary_object_id = request.target_object_id;
         result.trace_events.push_back("gateway_rejected");
+        if (trace_service_ != 0) {
+            trace_service_->record(request.trace_id, "gateway", "gateway_rejected", request.target_object_id, result.message);
+        }
         return result;
     }
 
@@ -218,11 +241,17 @@ ConsoleCommandResult ActionGateway::dispatch(const ConsoleCommandRequest& reques
         result.message = "Command argument is invalid: " + invalid_arg;
         result.primary_object_id = request.target_object_id;
         result.trace_events.push_back("gateway_rejected");
+        if (trace_service_ != 0) {
+            trace_service_->record(request.trace_id, "gateway", "gateway_rejected", request.target_object_id, result.message);
+        }
         return result;
     }
 
     result = browser_console_.execute(request);
     result.trace_events.insert(result.trace_events.begin(), "gateway_validated");
+    if (trace_service_ != 0) {
+        trace_service_->record(request.trace_id, "gateway", "gateway_validated", request.target_object_id, "Command passed Gateway validation.");
+    }
     return result;
 }
 
@@ -289,7 +318,14 @@ bool ActionGateway::commandHasValidArgumentValues(
 }
 
 SkillRuntime::SkillRuntime(ActionGateway& gateway)
-    : gateway_(gateway)
+    : gateway_(gateway),
+      trace_service_(0)
+{
+}
+
+SkillRuntime::SkillRuntime(ActionGateway& gateway, TraceService* trace_service)
+    : gateway_(gateway),
+      trace_service_(trace_service)
 {
 }
 
@@ -299,6 +335,9 @@ SkillExecutionResult SkillRuntime::execute(const SkillDefinition& definition, co
     std::vector<ConsoleCommandResult> previous_results;
 
     result.trace_events.push_back("skill_started");
+    if (trace_service_ != 0) {
+        trace_service_->record(input.trace_id, "skill", "skill_started", input.target_object_id, "Skill execution started.");
+    }
 
     for (std::size_t index = 0; index < definition.steps.size(); ++index) {
         bool resolved = false;
@@ -314,6 +353,9 @@ SkillExecutionResult SkillRuntime::execute(const SkillDefinition& definition, co
             result.error_code = "unresolved_binding";
             result.message = "Skill target binding could not be resolved.";
             result.trace_events.push_back("skill_binding_failed");
+            if (trace_service_ != 0) {
+                trace_service_->record(input.trace_id, "skill", "skill_binding_failed", std::string(), result.message);
+            }
             return result;
         }
 
@@ -334,6 +376,9 @@ SkillExecutionResult SkillRuntime::execute(const SkillDefinition& definition, co
             result.message = command_result.message;
             result.primary_object_id = command_result.primary_object_id;
             result.trace_events.push_back("skill_step_failed");
+            if (trace_service_ != 0) {
+                trace_service_->record(input.trace_id, "skill", "skill_step_failed", command_result.primary_object_id, result.message);
+            }
             return result;
         }
 
@@ -343,11 +388,17 @@ SkillExecutionResult SkillRuntime::execute(const SkillDefinition& definition, co
             result.primary_object_id = command_result.primary_object_id;
         }
         result.trace_events.push_back("skill_step_completed");
+        if (trace_service_ != 0) {
+            trace_service_->record(input.trace_id, "skill", "skill_step_completed", command_result.primary_object_id, "Skill step completed.");
+        }
     }
 
     result.ok = true;
     result.failed_step_index = -1;
     result.trace_events.push_back("skill_completed");
+    if (trace_service_ != 0) {
+        trace_service_->record(input.trace_id, "skill", "skill_completed", result.primary_object_id, "Skill execution completed.");
+    }
     return result;
 }
 

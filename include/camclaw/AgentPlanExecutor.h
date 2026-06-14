@@ -26,6 +26,7 @@ struct AgentPlanExecutionResult {
 class AgentPlanExecutor {
 public:
     explicit AgentPlanExecutor(SkillRuntime& skill_runtime);
+    AgentPlanExecutor(SkillRuntime& skill_runtime, TraceService* trace_service);
 
     AgentPlanExecutionResult execute(const AgentPlanDraft& draft);
 
@@ -33,6 +34,7 @@ private:
     bool buildSkillDefinition(const SkillStepDraft& draft_step, SkillDefinition& skill) const;
 
     SkillRuntime& skill_runtime_;
+    TraceService* trace_service_;
 };
 
 } // namespace camclaw
