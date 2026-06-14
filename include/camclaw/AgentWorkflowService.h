@@ -17,6 +17,7 @@ enum class ObjectType {
 enum class WorkflowStatus {
     Completed,
     NeedsTargetConfirmation,
+    NeedsValidTarget,
     Failed
 };
 

@@ -1,0 +1,120 @@
+#include "camclaw/SkillRuntime.h"
+
+#include <algorithm>
+#include <cstdlib>
+#include <iostream>
+#include <string>
+#include <vector>
+
+#define REQUIRE_TRUE(condition) \
+    do { \
+        if (!(condition)) { \
+            std::cerr << "Requirement failed: " #condition << " at " << __FILE__ << ":" << __LINE__ << std::endl; \
+            return EXIT_FAILURE; \
+        } \
+    } while (0)
+
+#define REQUIRE_EQ(expected, actual) \
+    do { \
+        if (!((expected) == (actual))) { \
+            std::cerr << "Requirement failed: " #expected " == " #actual << " at " << __FILE__ << ":" << __LINE__ << std::endl; \
+            return EXIT_FAILURE; \
+        } \
+    } while (0)
+
+static bool contains_event(const std::vector<std::string>& events, const std::string& event_name)
+{
+    return std::find(events.begin(), events.end(), event_name) != events.end();
+}
+
+static int controlled_script_can_use_registered_console_command()
+{
+    camclaw::Repository repository;
+    repository.save(camclaw::CamObject("op_existing", camclaw::ObjectType::Operation, "已有工序"));
+    camclaw::BrowserConsole browser_console(repository);
+    camclaw::ActionGateway gateway(repository, browser_console);
+
+    camclaw::ConsoleCommandRequest request;
+    request.command_id = "browser.generate_toolpath";
+    request.source = "script";
+    request.trace_id = "trace_script_001";
+    request.target_object_id = "op_existing";
+
+    const camclaw::ConsoleCommandResult result = gateway.dispatch(request);
+
+    REQUIRE_TRUE(result.ok);
+    REQUIRE_EQ(std::string("toolpath_op_existing"), result.primary_object_id);
+    REQUIRE_TRUE(repository.exists("toolpath_op_existing"));
+    REQUIRE_TRUE(contains_event(result.trace_events, "gateway_validated"));
+    REQUIRE_TRUE(contains_event(result.trace_events, "browser_console_dispatched"));
+
+    return EXIT_SUCCESS;
+}
+
+static int unsupported_script_command_is_blocked_before_console()
+{
+    camclaw::Repository repository;
+    repository.save(camclaw::CamObject("op_existing", camclaw::ObjectType::Operation, "已有工序"));
+    camclaw::BrowserConsole browser_console(repository);
+    camclaw::ActionGateway gateway(repository, browser_console);
+
+    camclaw::ConsoleCommandRequest request;
+    request.command_id = "browser.delete_operation";
+    request.source = "script";
+    request.trace_id = "trace_script_002";
+    request.target_object_id = "op_existing";
+
+    const camclaw::ConsoleCommandResult result = gateway.dispatch(request);
+
+    REQUIRE_TRUE(!result.ok);
+    REQUIRE_EQ(std::string("unsupported_command"), result.error_code);
+    REQUIRE_TRUE(contains_event(result.trace_events, "gateway_rejected"));
+    REQUIRE_TRUE(!contains_event(result.trace_events, "browser_console_dispatched"));
+
+    return EXIT_SUCCESS;
+}
+
+static int repository_type_overrides_request_type_hint()
+{
+    camclaw::Repository repository;
+    repository.save(camclaw::CamObject("op_existing", camclaw::ObjectType::Operation, "名字像型腔的工序"));
+    camclaw::BrowserConsole browser_console(repository);
+    camclaw::ActionGateway gateway(repository, browser_console);
+
+    camclaw::ConsoleCommandRequest request;
+    request.command_id = "browser.create_roughing_operation";
+    request.source = "script";
+    request.trace_id = "trace_script_003";
+    request.target_object_id = "op_existing";
+    request.target_object_type_hint = camclaw::ObjectType::Feature;
+
+    const camclaw::ConsoleCommandResult result = gateway.dispatch(request);
+
+    REQUIRE_TRUE(!result.ok);
+    REQUIRE_EQ(std::string("invalid_target_type"), result.error_code);
+    REQUIRE_EQ(std::string("op_existing"), result.primary_object_id);
+    REQUIRE_TRUE(!repository.exists("op_roughing_op_existing"));
+    REQUIRE_TRUE(contains_event(result.trace_events, "gateway_rejected"));
+
+    return EXIT_SUCCESS;
+}
+
+int main()
+{
+    int status = controlled_script_can_use_registered_console_command();
+    if (status != EXIT_SUCCESS) {
+        return status;
+    }
+
+    status = unsupported_script_command_is_blocked_before_console();
+    if (status != EXIT_SUCCESS) {
+        return status;
+    }
+
+    status = repository_type_overrides_request_type_hint();
+    if (status != EXIT_SUCCESS) {
+        return status;
+    }
+
+    return EXIT_SUCCESS;
+}

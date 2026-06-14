@@ -104,6 +104,49 @@ static int non_feature_target_is_rejected_before_execution()
     return EXIT_SUCCESS;
 }
 
+static int missing_target_without_selection_asks_for_feature_target()
+{
+    camclaw::Repository repository;
+    camclaw::AgentWorkflowService service(repository);
+
+    camclaw::RoughingWorkflowRequest request;
+    request.trace_id = "trace_004";
+
+    const camclaw::WorkflowResult result = service.submitRoughingAndToolpath(request);
+
+    REQUIRE_EQ(camclaw::WorkflowStatus::NeedsValidTarget, result.status);
+    REQUIRE_EQ(std::string("missing_target"), result.error_code);
+    REQUIRE_TRUE(result.created_object_ids.empty());
+    REQUIRE_TRUE(contains_event(result.trace_events, "target_required"));
+
+    return EXIT_SUCCESS;
+}
+
+static int wrong_selection_type_asks_for_valid_feature_target()
+{
+    camclaw::Repository repository;
+    repository.save(camclaw::CamObject("op_existing", camclaw::ObjectType::Operation, "已有工序"));
+
+    camclaw::AgentWorkflowService service(repository);
+
+    camclaw::RoughingWorkflowRequest request;
+    request.trace_id = "trace_005";
+    request.active_selection.has_object = true;
+    request.active_selection.object_id = "op_existing";
+    request.active_selection.object_type = camclaw::ObjectType::Operation;
+    request.active_selection.display_name = "已有工序";
+
+    const camclaw::WorkflowResult result = service.submitRoughingAndToolpath(request);
+
+    REQUIRE_EQ(camclaw::WorkflowStatus::NeedsValidTarget, result.status);
+    REQUIRE_EQ(std::string("invalid_selection_type"), result.error_code);
+    REQUIRE_EQ(std::string("op_existing"), result.primary_object_id);
+    REQUIRE_TRUE(result.created_object_ids.empty());
+    REQUIRE_TRUE(contains_event(result.trace_events, "valid_target_required"));
+
+    return EXIT_SUCCESS;
+}
+
 int main()
 {
     int status = missing_target_asks_to_confirm_current_selection();
@@ -117,6 +160,16 @@ int main()
     }
 
     status = non_feature_target_is_rejected_before_execution();
+    if (status != EXIT_SUCCESS) {
+        return status;
+    }
+
+    status = missing_target_without_selection_asks_for_feature_target();
+    if (status != EXIT_SUCCESS) {
+        return status;
+    }
+
+    status = wrong_selection_type_asks_for_valid_feature_target();
     if (status != EXIT_SUCCESS) {
         return status;
     }

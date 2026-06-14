@@ -1,4 +1,5 @@
 #include "camclaw/AgentWorkflowService.h"
+#include "camclaw/SkillRuntime.h"
 
 namespace camclaw {
 
@@ -42,24 +43,49 @@ WorkflowResult AgentWorkflowService::submitRoughingAndToolpath(const RoughingWor
             return result;
         }
 
-        const std::string operation_id = "op_roughing_" + request.target_object_id;
-        const std::string toolpath_id = "toolpath_" + operation_id;
+        SkillDefinition skill;
+        skill.skill_id = "browser.create_roughing_operation_and_generate_toolpath";
 
-        result.status = WorkflowStatus::Completed;
-        result.primary_object_id = operation_id;
-        result.created_object_ids.push_back(operation_id);
-        result.created_object_ids.push_back(toolpath_id);
-        repository_.save(CamObject(operation_id, ObjectType::Operation, "Roughing operation"));
-        repository_.save(CamObject(toolpath_id, ObjectType::Toolpath, "Generated toolpath"));
+        SkillCommandStep create_operation;
+        create_operation.command_id = "browser.create_roughing_operation";
+        create_operation.target_object_id_expression = "$input.target_object_id";
+        skill.steps.push_back(create_operation);
+
+        SkillCommandStep generate_toolpath;
+        generate_toolpath.command_id = "browser.generate_toolpath";
+        generate_toolpath.target_object_id_expression = "$step0.primary_object_id";
+        skill.steps.push_back(generate_toolpath);
+
+        SkillExecutionInput skill_input;
+        skill_input.trace_id = request.trace_id;
+        skill_input.target_object_id = request.target_object_id;
+
+        BrowserConsole browser_console(repository_);
+        ActionGateway gateway(repository_, browser_console);
+        SkillRuntime runtime(gateway);
+        const SkillExecutionResult skill_result = runtime.execute(skill, skill_input);
+
         result.trace_events.push_back("gateway_validated");
         result.trace_events.push_back("adapter_dispatched");
-        result.trace_events.push_back("browser_console_dispatched");
-        result.trace_events.push_back("roughing_operation_created");
-        result.trace_events.push_back("toolpath_generated");
+        result.trace_events.insert(result.trace_events.end(), skill_result.trace_events.begin(), skill_result.trace_events.end());
+
+        if (!skill_result.ok) {
+            result.status = WorkflowStatus::Failed;
+            result.error_code = skill_result.error_code;
+            result.message = skill_result.message;
+            result.primary_object_id = skill_result.primary_object_id;
+            return result;
+        }
+
+        result.status = WorkflowStatus::Completed;
+        if (!skill_result.object_ids.empty()) {
+            result.primary_object_id = skill_result.object_ids[0];
+        }
+        result.created_object_ids = skill_result.object_ids;
         return result;
     }
 
-    if (request.target_object_id.empty() && request.active_selection.has_object) {
+    if (request.active_selection.has_object && request.active_selection.object_type == ObjectType::Feature) {
         result.status = WorkflowStatus::NeedsTargetConfirmation;
         result.confirmation.target_object_id = request.active_selection.object_id;
         result.confirmation.target_object_type = request.active_selection.object_type;
@@ -69,10 +95,19 @@ WorkflowResult AgentWorkflowService::submitRoughingAndToolpath(const RoughingWor
         return result;
     }
 
-    result.status = WorkflowStatus::Failed;
+    if (request.active_selection.has_object) {
+        result.status = WorkflowStatus::NeedsValidTarget;
+        result.primary_object_id = request.active_selection.object_id;
+        result.error_code = "invalid_selection_type";
+        result.message = "Select or specify a feature before creating a roughing operation.";
+        result.trace_events.push_back("valid_target_required");
+        return result;
+    }
+
+    result.status = WorkflowStatus::NeedsValidTarget;
     result.error_code = "missing_target";
-    result.message = "A target object is required.";
-    result.trace_events.push_back("target_missing");
+    result.message = "Select or specify a feature before creating a roughing operation.";
+    result.trace_events.push_back("target_required");
     return result;
 }
 
