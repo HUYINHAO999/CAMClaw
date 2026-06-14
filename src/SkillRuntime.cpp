@@ -1,8 +1,58 @@
 #include "camclaw/SkillRuntime.h"
 
+#include <algorithm>
 #include <sstream>
 
 namespace camclaw {
+
+CommandRegistry CommandRegistry::browserDefaults()
+{
+    CommandRegistry registry;
+
+    std::vector<std::string> create_required_args;
+    create_required_args.push_back("operation_type");
+    create_required_args.push_back("tool_id");
+    create_required_args.push_back("stepover");
+    create_required_args.push_back("stepdown");
+    create_required_args.push_back("tolerance");
+
+    registry.registerCommand(CommandSpec(
+        "browser.create_roughing_operation",
+        ObjectType::Feature,
+        create_required_args));
+
+    registry.registerCommand(CommandSpec(
+        "browser.generate_toolpath",
+        ObjectType::Operation,
+        std::vector<std::string>()));
+
+    return registry;
+}
+
+void CommandRegistry::registerCommand(const CommandSpec& spec)
+{
+    specs_[spec.command_id] = spec;
+}
+
+bool CommandRegistry::find(const std::string& command_id, CommandSpec& spec) const
+{
+    const std::map<std::string, CommandSpec>::const_iterator found = specs_.find(command_id);
+    if (found == specs_.end()) {
+        return false;
+    }
+
+    spec = found->second;
+    return true;
+}
+
+std::vector<std::string> CommandRegistry::commandIds() const
+{
+    std::vector<std::string> ids;
+    for (std::map<std::string, CommandSpec>::const_iterator it = specs_.begin(); it != specs_.end(); ++it) {
+        ids.push_back(it->first);
+    }
+    return ids;
+}
 
 BrowserConsole::BrowserConsole(Repository& repository)
     : repository_(repository)
@@ -24,6 +74,14 @@ ConsoleCommandResult BrowserConsole::execute(const ConsoleCommandRequest& reques
     result.message = "Command is not supported by BrowserConsole.";
     result.trace_events.push_back("browser_console_rejected");
     return result;
+}
+
+std::vector<std::string> BrowserConsole::supportedCommands() const
+{
+    std::vector<std::string> commands;
+    commands.push_back("browser.create_roughing_operation");
+    commands.push_back("browser.generate_toolpath");
+    return commands;
 }
 
 ConsoleCommandResult BrowserConsole::createRoughingOperation(const ConsoleCommandRequest& request)
@@ -74,15 +132,23 @@ ConsoleCommandResult BrowserConsole::generateToolpath(const ConsoleCommandReques
 
 ActionGateway::ActionGateway(Repository& repository, BrowserConsole& browser_console)
     : repository_(repository),
-      browser_console_(browser_console)
+      browser_console_(browser_console),
+      registry_(CommandRegistry::browserDefaults())
+{
+}
+
+ActionGateway::ActionGateway(Repository& repository, BrowserConsole& browser_console, const CommandRegistry& registry)
+    : repository_(repository),
+      browser_console_(browser_console),
+      registry_(registry)
 {
 }
 
 ConsoleCommandResult ActionGateway::dispatch(const ConsoleCommandRequest& request)
 {
     ConsoleCommandResult result;
-    ObjectType required_type = ObjectType::Unknown;
-    if (!commandRequiresTargetType(request.command_id, required_type)) {
+    CommandSpec spec;
+    if (!registry_.find(request.command_id, spec)) {
         result.error_code = "unsupported_command";
         result.message = "Command is not registered for controlled execution.";
         result.trace_events.push_back("gateway_rejected");
@@ -90,7 +156,7 @@ ConsoleCommandResult ActionGateway::dispatch(const ConsoleCommandRequest& reques
     }
 
     const CamObject target = repository_.get(request.target_object_id);
-    if (target.object_type != required_type) {
+    if (target.object_type != spec.required_target_type) {
         result.error_code = "invalid_target_type";
         result.message = "Command target type is not valid.";
         result.primary_object_id = request.target_object_id;
@@ -99,7 +165,7 @@ ConsoleCommandResult ActionGateway::dispatch(const ConsoleCommandRequest& reques
     }
 
     std::string missing_arg;
-    if (!commandHasRequiredArguments(request, missing_arg)) {
+    if (!commandHasRequiredArguments(request, spec, missing_arg)) {
         result.error_code = "missing_argument";
         result.message = "Command argument is required: " + missing_arg;
         result.primary_object_id = request.target_object_id;
@@ -112,39 +178,32 @@ ConsoleCommandResult ActionGateway::dispatch(const ConsoleCommandRequest& reques
     return result;
 }
 
-bool ActionGateway::commandRequiresTargetType(const std::string& command_id, ObjectType& required_type) const
+bool ActionGateway::registryMatchesConsole() const
 {
-    if (command_id == "browser.create_roughing_operation") {
-        required_type = ObjectType::Feature;
-        return true;
+    const std::vector<std::string> registry_commands = registry_.commandIds();
+    const std::vector<std::string> console_commands = browser_console_.supportedCommands();
+    if (registry_commands.size() != console_commands.size()) {
+        return false;
     }
 
-    if (command_id == "browser.generate_toolpath") {
-        required_type = ObjectType::Operation;
-        return true;
+    for (std::size_t index = 0; index < registry_commands.size(); ++index) {
+        if (std::find(console_commands.begin(), console_commands.end(), registry_commands[index]) == console_commands.end()) {
+            return false;
+        }
     }
 
-    return false;
+    return true;
 }
 
-bool ActionGateway::commandHasRequiredArguments(const ConsoleCommandRequest& request, std::string& missing_arg) const
+bool ActionGateway::commandHasRequiredArguments(
+    const ConsoleCommandRequest& request,
+    const CommandSpec& spec,
+    std::string& missing_arg) const
 {
-    if (request.command_id != "browser.create_roughing_operation") {
-        return true;
-    }
-
-    const char* required[] = {
-        "operation_type",
-        "tool_id",
-        "stepover",
-        "stepdown",
-        "tolerance"
-    };
-
-    for (std::size_t index = 0; index < sizeof(required) / sizeof(required[0]); ++index) {
-        const std::map<std::string, std::string>::const_iterator found = request.args.find(required[index]);
+    for (std::size_t index = 0; index < spec.required_args.size(); ++index) {
+        const std::map<std::string, std::string>::const_iterator found = request.args.find(spec.required_args[index]);
         if (found == request.args.end() || found->second.empty()) {
-            missing_arg = required[index];
+            missing_arg = spec.required_args[index];
             return false;
         }
     }

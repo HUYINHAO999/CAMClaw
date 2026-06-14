@@ -99,6 +99,17 @@ static int repository_type_overrides_request_type_hint()
     return EXIT_SUCCESS;
 }
 
+static int default_registry_matches_browser_console_support()
+{
+    camclaw::Repository repository;
+    camclaw::BrowserConsole browser_console(repository);
+    camclaw::ActionGateway gateway(repository, browser_console);
+
+    REQUIRE_TRUE(gateway.registryMatchesConsole());
+
+    return EXIT_SUCCESS;
+}
+
 int main()
 {
     int status = controlled_script_can_use_registered_console_command();
@@ -112,6 +123,11 @@ int main()
     }
 
     status = repository_type_overrides_request_type_hint();
+    if (status != EXIT_SUCCESS) {
+        return status;
+    }
+
+    status = default_registry_matches_browser_console_support();
     if (status != EXIT_SUCCESS) {
         return status;
     }

@@ -37,11 +37,45 @@ struct ConsoleCommandResult {
     std::vector<std::string> trace_events;
 };
 
+struct CommandSpec {
+    CommandSpec()
+        : required_target_type(ObjectType::Unknown)
+    {
+    }
+
+    CommandSpec(
+        const std::string& id,
+        ObjectType target_type,
+        const std::vector<std::string>& required_argument_names)
+        : command_id(id),
+          required_target_type(target_type),
+          required_args(required_argument_names)
+    {
+    }
+
+    std::string command_id;
+    ObjectType required_target_type;
+    std::vector<std::string> required_args;
+};
+
+class CommandRegistry {
+public:
+    static CommandRegistry browserDefaults();
+
+    void registerCommand(const CommandSpec& spec);
+    bool find(const std::string& command_id, CommandSpec& spec) const;
+    std::vector<std::string> commandIds() const;
+
+private:
+    std::map<std::string, CommandSpec> specs_;
+};
+
 class BrowserConsole {
 public:
     explicit BrowserConsole(Repository& repository);
 
     ConsoleCommandResult execute(const ConsoleCommandRequest& request);
+    std::vector<std::string> supportedCommands() const;
 
 private:
     ConsoleCommandResult createRoughingOperation(const ConsoleCommandRequest& request);
@@ -53,15 +87,20 @@ private:
 class ActionGateway {
 public:
     ActionGateway(Repository& repository, BrowserConsole& browser_console);
+    ActionGateway(Repository& repository, BrowserConsole& browser_console, const CommandRegistry& registry);
 
     ConsoleCommandResult dispatch(const ConsoleCommandRequest& request);
+    bool registryMatchesConsole() const;
 
 private:
-    bool commandRequiresTargetType(const std::string& command_id, ObjectType& required_type) const;
-    bool commandHasRequiredArguments(const ConsoleCommandRequest& request, std::string& missing_arg) const;
+    bool commandHasRequiredArguments(
+        const ConsoleCommandRequest& request,
+        const CommandSpec& spec,
+        std::string& missing_arg) const;
 
     Repository& repository_;
     BrowserConsole& browser_console_;
+    CommandRegistry registry_;
 };
 
 struct SkillCommandStep {
