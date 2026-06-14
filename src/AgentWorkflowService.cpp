@@ -3,9 +3,14 @@
 
 namespace camclaw {
 
-void Repository::save(const CamObject& object)
+bool Repository::save(const CamObject& object)
 {
+    if (object.object_id.empty() || exists(object.object_id)) {
+        return false;
+    }
+
     objects_[object.object_id] = object;
+    return true;
 }
 
 bool Repository::exists(const std::string& object_id) const

@@ -97,7 +97,13 @@ ConsoleCommandResult BrowserConsole::createRoughingOperation(const ConsoleComman
     }
 
     const std::string operation_id = "op_roughing_" + request.target_object_id;
-    repository_.save(CamObject(operation_id, ObjectType::Operation, "Roughing operation"));
+    if (!repository_.save(CamObject(operation_id, ObjectType::Operation, "Roughing operation"))) {
+        result.error_code = "duplicate_object_id";
+        result.message = "Operation object ID already exists.";
+        result.primary_object_id = operation_id;
+        result.trace_events.push_back("browser_console_rejected");
+        return result;
+    }
 
     result.ok = true;
     result.primary_object_id = operation_id;
@@ -120,7 +126,13 @@ ConsoleCommandResult BrowserConsole::generateToolpath(const ConsoleCommandReques
     }
 
     const std::string toolpath_id = "toolpath_" + request.target_object_id;
-    repository_.save(CamObject(toolpath_id, ObjectType::Toolpath, "Generated toolpath"));
+    if (!repository_.save(CamObject(toolpath_id, ObjectType::Toolpath, "Generated toolpath"))) {
+        result.error_code = "duplicate_object_id";
+        result.message = "Toolpath object ID already exists.";
+        result.primary_object_id = toolpath_id;
+        result.trace_events.push_back("browser_console_rejected");
+        return result;
+    }
 
     result.ok = true;
     result.primary_object_id = toolpath_id;

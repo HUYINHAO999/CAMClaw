@@ -86,3 +86,14 @@ target_link_libraries(camclaw_agent_plan_executor_tests
 )
 
 add_test(NAME camclaw_agent_plan_executor_tests COMMAND camclaw_agent_plan_executor_tests)
+
+add_executable(camclaw_repository_tests
+    tests/test_repository.cpp
+)
+
+target_link_libraries(camclaw_repository_tests
+    PRIVATE
+        camclaw_core
+)
+
+add_test(NAME camclaw_repository_tests COMMAND camclaw_repository_tests)

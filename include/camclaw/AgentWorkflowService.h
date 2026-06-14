@@ -41,7 +41,7 @@ struct CamObject {
 
 class Repository {
 public:
-    void save(const CamObject& object);
+    bool save(const CamObject& object);
     bool exists(const std::string& object_id) const;
     CamObject get(const std::string& object_id) const;
 
