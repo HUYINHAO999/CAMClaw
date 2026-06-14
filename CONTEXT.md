@@ -2,6 +2,15 @@
 
 CAMClaw is a C++/Qt CAM application architecture project focused on adding Agent and natural-language operation capability without forcing ordinary UI interaction through the Agent stack.
 
+## Implementation constraints
+
+- C++ should primarily target C++11.
+- C++14 may be used selectively when it clearly simplifies implementation.
+- Do not use C++17 or newer language/library features.
+- Product code must not implement natural-language behavior through hardcoded prompt keyword or phrase matching.
+- Prompts, documentation, examples, and tests may include natural-language use cases, but runtime logic must operate on structured artifacts such as `AgentPlanDraft`, `Skill` inputs, `Agent Action Request`, `ConsoleCommandRequest`, command IDs, object IDs, schemas, and validated arguments.
+- If a user prompt needs interpretation, that interpretation belongs before execution in the Agent Planner / LLM layer and must be converted into reviewed structured data before Gateway, Adapter, Console, or CAM execution code runs.
+
 ## Core architecture language
 
 ### Qt UI / Interaction Layer
