@@ -52,6 +52,7 @@ public:
     const std::string& skillId() const;
     bool hasInput(const std::string& name) const;
     std::string inputValue(const std::string& name) const;
+    const std::map<std::string, std::string>& inputs() const;
 
 private:
     friend class AgentPlanDraft;

@@ -28,6 +28,11 @@ std::string SkillStepDraft::inputValue(const std::string& name) const
     return found->second;
 }
 
+const std::map<std::string, std::string>& SkillStepDraft::inputs() const
+{
+    return inputs_;
+}
+
 void SkillStepDraft::setInputValue(const std::string& name, const std::string& value)
 {
     inputs_[name] = value;
