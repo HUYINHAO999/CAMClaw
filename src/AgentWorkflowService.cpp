@@ -49,6 +49,11 @@ WorkflowResult AgentWorkflowService::submitRoughingAndToolpath(const RoughingWor
         SkillCommandStep create_operation;
         create_operation.command_id = "browser.create_roughing_operation";
         create_operation.target_object_id_expression = "$input.target_object_id";
+        create_operation.args["operation_type"] = request.operation_type;
+        create_operation.args["tool_id"] = request.tool_id;
+        create_operation.args["stepover"] = request.stepover;
+        create_operation.args["stepdown"] = request.stepdown;
+        create_operation.args["tolerance"] = request.tolerance;
         skill.steps.push_back(create_operation);
 
         SkillCommandStep generate_toolpath;
@@ -78,9 +83,7 @@ WorkflowResult AgentWorkflowService::submitRoughingAndToolpath(const RoughingWor
         }
 
         result.status = WorkflowStatus::Completed;
-        if (!skill_result.object_ids.empty()) {
-            result.primary_object_id = skill_result.object_ids[0];
-        }
+        result.primary_object_id = skill_result.primary_object_id;
         result.created_object_ids = skill_result.object_ids;
         return result;
     }

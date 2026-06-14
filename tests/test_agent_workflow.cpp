@@ -59,6 +59,11 @@ static int explicit_target_creates_operation_and_toolpath()
     camclaw::RoughingWorkflowRequest request;
     request.trace_id = "trace_002";
     request.target_object_id = "feature_001";
+    request.operation_type = "roughing";
+    request.tool_id = "tool_010";
+    request.stepover = "2.0";
+    request.stepdown = "1.0";
+    request.tolerance = "0.02";
 
     const camclaw::WorkflowResult result = service.submitRoughingAndToolpath(request);
 
@@ -91,6 +96,11 @@ static int non_feature_target_is_rejected_before_execution()
     camclaw::RoughingWorkflowRequest request;
     request.trace_id = "trace_003";
     request.target_object_id = "op_existing";
+    request.operation_type = "roughing";
+    request.tool_id = "tool_010";
+    request.stepover = "2.0";
+    request.stepdown = "1.0";
+    request.tolerance = "0.02";
 
     const camclaw::WorkflowResult result = service.submitRoughingAndToolpath(request);
 
@@ -100,6 +110,33 @@ static int non_feature_target_is_rejected_before_execution()
     REQUIRE_TRUE(result.created_object_ids.empty());
     REQUIRE_TRUE(contains_event(result.trace_events, "gateway_rejected"));
     REQUIRE_TRUE(!repository.exists("op_roughing_op_existing"));
+
+    return EXIT_SUCCESS;
+}
+
+static int explicit_target_with_missing_tool_stops_before_execution()
+{
+    camclaw::Repository repository;
+    repository.save(camclaw::CamObject("feature_001", camclaw::ObjectType::Feature, "型腔 A"));
+
+    camclaw::AgentWorkflowService service(repository);
+
+    camclaw::RoughingWorkflowRequest request;
+    request.trace_id = "trace_006";
+    request.target_object_id = "feature_001";
+    request.operation_type = "roughing";
+    request.stepover = "2.0";
+    request.stepdown = "1.0";
+    request.tolerance = "0.02";
+
+    const camclaw::WorkflowResult result = service.submitRoughingAndToolpath(request);
+
+    REQUIRE_EQ(camclaw::WorkflowStatus::Failed, result.status);
+    REQUIRE_EQ(std::string("missing_argument"), result.error_code);
+    REQUIRE_EQ(std::string("feature_001"), result.primary_object_id);
+    REQUIRE_TRUE(result.created_object_ids.empty());
+    REQUIRE_TRUE(!repository.exists("op_roughing_feature_001"));
+    REQUIRE_TRUE(contains_event(result.trace_events, "gateway_rejected"));
 
     return EXIT_SUCCESS;
 }
@@ -170,6 +207,11 @@ int main()
     }
 
     status = wrong_selection_type_asks_for_valid_feature_target();
+    if (status != EXIT_SUCCESS) {
+        return status;
+    }
+
+    status = explicit_target_with_missing_tool_stops_before_execution();
     if (status != EXIT_SUCCESS) {
         return status;
     }

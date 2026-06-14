@@ -35,6 +35,11 @@ static camclaw::SkillDefinition create_roughing_skill()
     camclaw::SkillCommandStep create_operation;
     create_operation.command_id = "browser.create_roughing_operation";
     create_operation.target_object_id_expression = "$input.target_object_id";
+    create_operation.args["operation_type"] = "roughing";
+    create_operation.args["tool_id"] = "tool_010";
+    create_operation.args["stepover"] = "2.0";
+    create_operation.args["stepdown"] = "1.0";
+    create_operation.args["tolerance"] = "0.02";
     skill.steps.push_back(create_operation);
 
     camclaw::SkillCommandStep generate_toolpath;
@@ -61,7 +66,7 @@ static int skill_executes_steps_and_binds_primary_object_id()
 
     REQUIRE_TRUE(result.ok);
     REQUIRE_EQ(-1, result.failed_step_index);
-    REQUIRE_EQ(std::string("toolpath_op_roughing_feature_001"), result.primary_object_id);
+    REQUIRE_EQ(std::string("op_roughing_feature_001"), result.primary_object_id);
     REQUIRE_TRUE(repository.exists("op_roughing_feature_001"));
     REQUIRE_TRUE(repository.exists("toolpath_op_roughing_feature_001"));
     REQUIRE_TRUE(contains_event(result.trace_events, "roughing_operation_created"));

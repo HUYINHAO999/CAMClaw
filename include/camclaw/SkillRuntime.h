@@ -58,6 +58,7 @@ public:
 
 private:
     bool commandRequiresTargetType(const std::string& command_id, ObjectType& required_type) const;
+    bool commandHasRequiredArguments(const ConsoleCommandRequest& request, std::string& missing_arg) const;
 
     Repository& repository_;
     BrowserConsole& browser_console_;

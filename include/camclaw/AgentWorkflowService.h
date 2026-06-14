@@ -65,6 +65,11 @@ struct SelectionCandidate {
 struct RoughingWorkflowRequest {
     std::string trace_id;
     std::string target_object_id;
+    std::string operation_type;
+    std::string tool_id;
+    std::string stepover;
+    std::string stepdown;
+    std::string tolerance;
     SelectionCandidate active_selection;
 };
 

@@ -98,6 +98,15 @@ ConsoleCommandResult ActionGateway::dispatch(const ConsoleCommandRequest& reques
         return result;
     }
 
+    std::string missing_arg;
+    if (!commandHasRequiredArguments(request, missing_arg)) {
+        result.error_code = "missing_argument";
+        result.message = "Command argument is required: " + missing_arg;
+        result.primary_object_id = request.target_object_id;
+        result.trace_events.push_back("gateway_rejected");
+        return result;
+    }
+
     result = browser_console_.execute(request);
     result.trace_events.insert(result.trace_events.begin(), "gateway_validated");
     return result;
@@ -116,6 +125,31 @@ bool ActionGateway::commandRequiresTargetType(const std::string& command_id, Obj
     }
 
     return false;
+}
+
+bool ActionGateway::commandHasRequiredArguments(const ConsoleCommandRequest& request, std::string& missing_arg) const
+{
+    if (request.command_id != "browser.create_roughing_operation") {
+        return true;
+    }
+
+    const char* required[] = {
+        "operation_type",
+        "tool_id",
+        "stepover",
+        "stepdown",
+        "tolerance"
+    };
+
+    for (std::size_t index = 0; index < sizeof(required) / sizeof(required[0]); ++index) {
+        const std::map<std::string, std::string>::const_iterator found = request.args.find(required[index]);
+        if (found == request.args.end() || found->second.empty()) {
+            missing_arg = required[index];
+            return false;
+        }
+    }
+
+    return true;
 }
 
 SkillRuntime::SkillRuntime(ActionGateway& gateway)
@@ -169,7 +203,9 @@ SkillExecutionResult SkillRuntime::execute(const SkillDefinition& definition, co
 
         previous_results.push_back(command_result);
         result.object_ids.insert(result.object_ids.end(), command_result.object_ids.begin(), command_result.object_ids.end());
-        result.primary_object_id = command_result.primary_object_id;
+        if (result.primary_object_id.empty()) {
+            result.primary_object_id = command_result.primary_object_id;
+        }
         result.trace_events.push_back("skill_step_completed");
     }
 
