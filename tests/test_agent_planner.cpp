@@ -62,6 +62,8 @@ static int planner_builds_draft_from_structured_llm_response()
     REQUIRE_EQ(std::string("trace_plan_001"), llm.last_request.trace_id);
     REQUIRE_EQ(std::string("给当前型腔做粗加工"), llm.last_request.user_request);
     REQUIRE_EQ(std::string("feature_001"), llm.last_request.target_object_id);
+    REQUIRE_TRUE(llm.last_request.response_contract.find("operation_type") != std::string::npos);
+    REQUIRE_TRUE(llm.last_request.response_contract.find("Do not execute CAM commands") != std::string::npos);
     REQUIRE_EQ(1u, result.draft.stepCount());
     REQUIRE_EQ(std::string("roughing"), result.draft.stepAt(0).inputValue("operation_type"));
     REQUIRE_EQ(std::string("tool_010"), result.draft.stepAt(0).inputValue("tool_id"));

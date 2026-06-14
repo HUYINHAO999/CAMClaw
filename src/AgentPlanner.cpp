@@ -130,6 +130,14 @@ LlmEndpointConfig LlmEndpointConfig::fromEnvironment()
     return config;
 }
 
+std::string LlmPlanningContract::roughingPlanJsonContract()
+{
+    return std::string()
+        + "Return only a flat JSON object with string fields: "
+        + "operation_type, tool_id, stepover, stepdown, tolerance. "
+        + "Do not execute CAM commands. Do not include prose.";
+}
+
 AgentPlannerResult::AgentPlannerResult()
     : ok(false),
       draft("")
@@ -154,6 +162,7 @@ AgentPlannerResult AgentPlanner::createDraft(
     request.trace_id = trace_id;
     request.user_request = user_request;
     request.target_object_id = target_object_id;
+    request.response_contract = LlmPlanningContract::roughingPlanJsonContract();
 
     const std::string json = llm_client_.createPlanJson(request);
 

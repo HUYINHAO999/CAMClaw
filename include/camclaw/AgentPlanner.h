@@ -20,6 +20,12 @@ struct LlmPlanRequest {
     std::string trace_id;
     std::string user_request;
     std::string target_object_id;
+    std::string response_contract;
+};
+
+class LlmPlanningContract {
+public:
+    static std::string roughingPlanJsonContract();
 };
 
 class LlmClient {
