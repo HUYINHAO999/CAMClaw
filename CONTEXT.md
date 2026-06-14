@@ -7,6 +7,8 @@ CAMClaw is a C++/Qt CAM application architecture project focused on adding Agent
 - C++ should primarily target C++11.
 - C++14 may be used selectively when it clearly simplifies implementation.
 - Do not use C++17 or newer language/library features.
+- LLM calls, prompt contracts, model response parsing, and natural-language planning belong in the Python backend, not the C++ Qt/CAM core.
+- The C++ core should consume reviewed structured artifacts such as `AgentPlanDraft`, `Skill` inputs, `ConsoleCommandRequest`, command IDs, object IDs, schemas, and validated arguments.
 - Product code must not implement natural-language behavior through hardcoded prompt keyword or phrase matching.
 - Prompts, documentation, examples, and tests may include natural-language use cases, but runtime logic must operate on structured artifacts such as `AgentPlanDraft`, `Skill` inputs, `Agent Action Request`, `ConsoleCommandRequest`, command IDs, object IDs, schemas, and validated arguments.
 - If a user prompt needs interpretation, that interpretation belongs before execution in the Agent Planner / LLM layer and must be converted into reviewed structured data before Gateway, Adapter, Console, or CAM execution code runs.
@@ -203,6 +205,8 @@ V1 rules:
 ### AgentPlanDraft
 
 An AgentPlanDraft is the reviewed output of LLM planning before execution.
+
+LLM planning is produced by the Python backend. The C++ Qt/CAM side receives the resulting structured draft and is responsible for review, confirmation, Skill execution, Gateway validation, Adapter dispatch, Console coordination, and CAM object updates.
 
 V1 rules:
 

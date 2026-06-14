@@ -56,6 +56,7 @@ The user-facing behavior should be:
 ## Implementation Decisions
 
 - C++ implementation should primarily use C++11. C++14 is allowed where it clearly improves the implementation; C++17 or newer features are out of scope.
+- LLM calls, prompt contracts, model response parsing, and natural-language planning belong in the Python backend. The C++ Qt/CAM core consumes reviewed structured artifacts and executes CAM behavior.
 - Product code must not use hardcoded user-prompt keyword or phrase matching to decide CAM behavior. Natural-language examples can appear in prompts, documentation, and tests, but execution code should consume structured plans, command IDs, schemas, object IDs, and validated arguments.
 - Component Console is the command facade and coordinator for a UI component or control. It is not a domain-service bucket and not an Agent-specific layer.
 - `Browser_BrowserConsole` is the canonical example: it coordinates browser trees, items, item operations, commands, menus, and refresh behavior, while lower layers perform actual business work.
