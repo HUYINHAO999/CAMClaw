@@ -19,7 +19,7 @@ CAMCLAW_LLM_MODEL=gpt-5.5
 ## Open UI
 
 ```text
-http://127.0.0.1:8765/agent-review
+http://127.0.0.1:8765/agent-review/
 ```
 
 ## Smoke Test

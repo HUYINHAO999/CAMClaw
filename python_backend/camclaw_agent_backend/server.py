@@ -15,7 +15,15 @@ class AgentBackendHandler(BaseHTTPRequestHandler):
     ui_root = Path(__file__).resolve().parents[2] / "ui_prototype" / "agent_review"
 
     def do_GET(self) -> None:
-        if self.path == "/" or self.path == "/agent-review":
+        if self.path == "/":
+            self._redirect("/agent-review/")
+            return
+
+        if self.path == "/agent-review":
+            self._redirect("/agent-review/")
+            return
+
+        if self.path == "/agent-review/":
             self._send_static_file(self.ui_root / "index.html")
             return
 
@@ -87,6 +95,13 @@ class AgentBackendHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def _redirect(self, location: str) -> None:
+        body = b""
+        self.send_response(302)
+        self.send_header("Location", location)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
 
 
 def run(host: str = "127.0.0.1", port: int = 8765) -> None:
