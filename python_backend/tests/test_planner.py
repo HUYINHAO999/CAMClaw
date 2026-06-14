@@ -31,6 +31,7 @@ class AgentPlannerTests(unittest.TestCase):
                 trace_id="trace_py_001",
                 user_request="给当前型腔做粗加工",
                 target_object_id="feature_001",
+                rejection_reason="只要粗加工，不要精加工",
             )
         )
 
@@ -42,6 +43,7 @@ class AgentPlannerTests(unittest.TestCase):
         )
         self.assertEqual("feature_001", draft["steps"][0]["inputs"]["target_object_id"])
         self.assertEqual("tool_010", draft["steps"][0]["inputs"]["tool_id"])
+        self.assertEqual("只要粗加工，不要精加工", llm.last_request["rejection_reason"])
         self.assertIn("operation_type", llm.last_request["response_contract"])
 
     def test_rejects_unstructured_llm_response(self):

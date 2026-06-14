@@ -23,6 +23,7 @@ class AgentBackendHandler(BaseHTTPRequestHandler):
                     trace_id=str(payload["trace_id"]),
                     user_request=str(payload["user_request"]),
                     target_object_id=str(payload["target_object_id"]),
+                    rejection_reason=str(payload.get("rejection_reason", "")),
                 )
             )
         except KeyError as exc:

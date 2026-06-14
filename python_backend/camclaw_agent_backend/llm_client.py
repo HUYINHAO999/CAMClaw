@@ -37,6 +37,7 @@ class OpenAICompatibleClient:
         trace_id: str,
         user_request: str,
         target_object_id: str,
+        rejection_reason: str,
         response_contract: str,
     ) -> str:
         payload = {
@@ -55,6 +56,7 @@ class OpenAICompatibleClient:
                         "trace_id": trace_id,
                         "target_object_id": target_object_id,
                         "user_request": user_request,
+                        "rejection_reason": rejection_reason,
                     },
                 },
             ],

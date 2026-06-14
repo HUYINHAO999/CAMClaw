@@ -50,6 +50,7 @@ class OpenAICompatibleClientTests(unittest.TestCase):
                 trace_id="trace_http_001",
                 user_request="给当前型腔做粗加工",
                 target_object_id="feature_001",
+                rejection_reason="只要粗加工，不要精加工",
                 response_contract="Return JSON",
             )
 
@@ -57,6 +58,10 @@ class OpenAICompatibleClientTests(unittest.TestCase):
         self.assertEqual("Bearer local-secret", captured["headers"]["Authorization"])
         self.assertEqual("application/json", captured["headers"]["Content-type"])
         self.assertEqual("gpt-5.5", captured["body"]["model"])
+        self.assertEqual(
+            "只要粗加工，不要精加工",
+            captured["body"]["messages"][1]["content"]["rejection_reason"],
+        )
         self.assertEqual(30, captured["timeout"])
         self.assertIn('"operation_type":"roughing"', content)
 

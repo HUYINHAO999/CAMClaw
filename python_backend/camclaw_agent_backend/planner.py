@@ -14,6 +14,7 @@ class LlmPlanningClient(Protocol):
         trace_id: str,
         user_request: str,
         target_object_id: str,
+        rejection_reason: str,
         response_contract: str,
     ) -> str:
         ...
@@ -24,6 +25,7 @@ class PlannerInput:
     trace_id: str
     user_request: str
     target_object_id: str
+    rejection_reason: str = ""
 
 
 class PlannerError(ValueError):
@@ -42,6 +44,7 @@ class AgentPlanner:
             trace_id=planner_input.trace_id,
             user_request=planner_input.user_request,
             target_object_id=planner_input.target_object_id,
+            rejection_reason=planner_input.rejection_reason,
             response_contract=roughing_plan_json_contract(),
         )
         fields = self._parse_flat_string_object(plan_json)
