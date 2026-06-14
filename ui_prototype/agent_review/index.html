@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CAMClaw Agent 草案审核</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <section class="workspace">
+      <header class="topbar">
+        <div>
+          <h1>Agent 草案审核</h1>
+          <p id="traceId">trace_ui_001</p>
+        </div>
+        <div class="status-pill" id="draftStatus">待审核</div>
+      </header>
+
+      <section class="target-row" aria-label="Target confirmation">
+        <div>
+          <span class="label">目标</span>
+          <strong id="targetName">型腔 A</strong>
+          <span id="targetMeta">feature_001 · Feature</span>
+        </div>
+        <button class="secondary" id="useSelectionButton" type="button">使用当前选择</button>
+      </section>
+
+      <section class="content-grid">
+        <article class="panel draft-panel">
+          <header class="panel-header">
+            <h2>草案步骤</h2>
+            <span>1 step</span>
+          </header>
+          <div id="stepList" class="step-list"></div>
+        </article>
+
+        <article class="panel parameter-panel">
+          <header class="panel-header">
+            <h2>参数</h2>
+            <span id="editMode">可编辑</span>
+          </header>
+          <form id="parameterForm" class="parameter-grid"></form>
+        </article>
+
+        <article class="panel result-panel">
+          <header class="panel-header">
+            <h2>执行结果</h2>
+            <span id="resultStatus">未执行</span>
+          </header>
+          <div id="resultBody" class="result-body">Confirm the reviewed draft to execute it through the C++ core path.</div>
+        </article>
+
+        <article class="panel trace-panel">
+          <header class="panel-header">
+            <h2>追踪</h2>
+            <span id="traceCount">0 events</span>
+          </header>
+          <ol id="traceList" class="trace-list"></ol>
+        </article>
+      </section>
+    </section>
+
+    <aside class="action-rail">
+      <button class="primary" id="confirmButton" type="button">确认执行</button>
+      <button class="secondary" id="simulateFailureButton" type="button">模拟失败</button>
+      <label class="reject-label" for="rejectReason">拒绝原因</label>
+      <textarea id="rejectReason" rows="5">只要粗加工，不要精加工</textarea>
+      <button class="danger" id="rejectButton" type="button">拒绝草案</button>
+    </aside>
+  </main>
+
+  <script src="./review.js"></script>
+</body>
+</html>
