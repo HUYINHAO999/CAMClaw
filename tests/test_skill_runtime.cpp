@@ -103,6 +103,31 @@ static int skill_stops_on_strict_binding_failure_without_rollback()
     return EXIT_SUCCESS;
 }
 
+static int skill_stops_on_command_failure_without_rollback()
+{
+    camclaw::Repository repository;
+    repository.save(camclaw::CamObject("feature_001", camclaw::ObjectType::Feature, "型腔 A"));
+    repository.save(camclaw::CamObject("toolpath_op_roughing_feature_001", camclaw::ObjectType::Toolpath, "已有刀轨"));
+    camclaw::BrowserConsole browser_console(repository);
+    camclaw::ActionGateway gateway(repository, browser_console);
+    camclaw::SkillRuntime runtime(gateway);
+
+    camclaw::SkillExecutionInput input;
+    input.trace_id = "trace_skill_003";
+    input.target_object_id = "feature_001";
+
+    const camclaw::SkillExecutionResult result = runtime.execute(create_roughing_skill(), input);
+
+    REQUIRE_TRUE(!result.ok);
+    REQUIRE_EQ(1, result.failed_step_index);
+    REQUIRE_EQ(std::string("duplicate_object_id"), result.error_code);
+    REQUIRE_TRUE(repository.exists("op_roughing_feature_001"));
+    REQUIRE_TRUE(repository.exists("toolpath_op_roughing_feature_001"));
+    REQUIRE_TRUE(contains_event(result.trace_events, "skill_step_failed"));
+
+    return EXIT_SUCCESS;
+}
+
 int main()
 {
     int status = skill_executes_steps_and_binds_primary_object_id();
@@ -111,6 +136,11 @@ int main()
     }
 
     status = skill_stops_on_strict_binding_failure_without_rollback();
+    if (status != EXIT_SUCCESS) {
+        return status;
+    }
+
+    status = skill_stops_on_command_failure_without_rollback();
     if (status != EXIT_SUCCESS) {
         return status;
     }
