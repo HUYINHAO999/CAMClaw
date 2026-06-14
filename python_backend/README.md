@@ -33,3 +33,9 @@ Endpoint:
 ```text
 POST /v1/agent/plan
 ```
+
+UI prototype:
+
+```text
+http://127.0.0.1:8765/agent-review
+```

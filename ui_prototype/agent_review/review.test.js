@@ -42,11 +42,14 @@ function createDocument() {
     "simulateFailureButton",
     "rejectReason",
     "useSelectionButton",
+    "userRequest",
+    "generateDraftButton",
   ];
   ids.forEach((id) => {
     elements[id] = createElement("div");
   });
   elements.rejectReason.value = "只要粗加工，不要精加工";
+  elements.userRequest.value = "给当前型腔做粗加工";
 
   return {
     elements,
@@ -61,6 +64,10 @@ const document = createDocument();
 const context = {
   document,
   console,
+  fetch() {
+    throw new Error("fetch should not be called by this test");
+  },
+  Date,
 };
 vm.createContext(context);
 

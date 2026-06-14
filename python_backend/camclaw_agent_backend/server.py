@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import mimetypes
+from pathlib import Path
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Dict
 
@@ -10,6 +12,19 @@ from .planner import AgentPlanner, PlannerError, PlannerInput
 
 class AgentBackendHandler(BaseHTTPRequestHandler):
     planner = AgentPlanner(OpenAICompatibleClient(LlmConfig.from_env()))
+    ui_root = Path(__file__).resolve().parents[2] / "ui_prototype" / "agent_review"
+
+    def do_GET(self) -> None:
+        if self.path == "/" or self.path == "/agent-review":
+            self._send_static_file(self.ui_root / "index.html")
+            return
+
+        if self.path.startswith("/agent-review/"):
+            relative_path = self.path[len("/agent-review/") :]
+            self._send_static_file(self.ui_root / relative_path)
+            return
+
+        self._send_json(404, {"error_code": "not_found"})
 
     def do_POST(self) -> None:
         if self.path != "/v1/agent/plan":
@@ -37,6 +52,25 @@ class AgentBackendHandler(BaseHTTPRequestHandler):
             return
 
         self._send_json(200, draft)
+
+    def _send_static_file(self, path: Path) -> None:
+        resolved_root = self.ui_root.resolve()
+        resolved_path = path.resolve()
+        if resolved_root not in resolved_path.parents and resolved_path != resolved_root:
+            self._send_json(403, {"error_code": "forbidden"})
+            return
+
+        if not resolved_path.is_file():
+            self._send_json(404, {"error_code": "not_found"})
+            return
+
+        content_type = mimetypes.guess_type(str(resolved_path))[0] or "application/octet-stream"
+        body = resolved_path.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def _read_json(self) -> Dict[str, Any]:
         content_length = int(self.headers.get("Content-Length", "0"))

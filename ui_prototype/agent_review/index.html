@@ -26,6 +26,12 @@
         <button class="secondary" id="useSelectionButton" type="button">使用当前选择</button>
       </section>
 
+      <section class="prompt-row" aria-label="Agent planning">
+        <label for="userRequest">用户请求</label>
+        <input id="userRequest" type="text" value="给当前型腔做粗加工">
+        <button class="primary" id="generateDraftButton" type="button">生成草案</button>
+      </section>
+
       <section class="content-grid">
         <article class="panel draft-panel">
           <header class="panel-header">
@@ -48,7 +54,7 @@
             <h2>执行结果</h2>
             <span id="resultStatus">未执行</span>
           </header>
-          <div id="resultBody" class="result-body">Confirm the reviewed draft to execute it through the C++ core path.</div>
+          <div id="resultBody" class="result-body">确认审核后的草案后，将通过 C++ Core 执行。</div>
         </article>
 
         <article class="panel trace-panel">

@@ -1,4 +1,4 @@
-const draft = {
+const initialDraft = {
   trace_id: "trace_ui_001",
   status: "pending_review",
   target: {
@@ -31,12 +31,20 @@ const parameterLabels = {
 };
 
 const state = {
-  draft,
+  draft: initialDraft,
   executionResult: null,
 };
 
 function stepInputs() {
   return state.draft.steps[0].inputs;
+}
+
+function normalizeBackendDraft(backendDraft) {
+  return {
+    ...backendDraft,
+    target: state.draft.target,
+    trace_events: backendDraft.trace_events || ["draft_created"],
+  };
 }
 
 function addTrace(eventName) {
@@ -152,6 +160,53 @@ function renderControls() {
   document.getElementById("rejectButton").disabled = !editable;
   document.getElementById("simulateFailureButton").disabled = !editable;
   document.getElementById("rejectReason").disabled = !editable;
+  document.getElementById("generateDraftButton").disabled = state.draft.status === "confirmed";
+}
+
+async function generateDraft() {
+  const userRequest = document.getElementById("userRequest").value.trim();
+  if (!userRequest) return;
+
+  state.executionResult = {
+    ok: false,
+    error_code: "planning",
+    message: "正在请求 Python backend 生成草案...",
+    primary_object_id: "",
+    object_ids: [],
+    trace_events: [...state.draft.trace_events],
+  };
+  renderResult();
+
+  try {
+    const response = await fetch("/v1/agent/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        trace_id: `trace_ui_${Date.now()}`,
+        user_request: userRequest,
+        target_object_id: state.draft.target.object_id,
+        rejection_reason: state.draft.rejection_reason || "",
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(`${payload.error_code || "plan_failed"}: ${payload.message || ""}`);
+    }
+
+    state.draft = normalizeBackendDraft(payload);
+    state.executionResult = null;
+    render();
+  } catch (error) {
+    state.executionResult = {
+      ok: false,
+      error_code: "plan_request_failed",
+      message: error.message,
+      primary_object_id: "",
+      object_ids: [],
+      trace_events: [...state.draft.trace_events],
+    };
+    render();
+  }
 }
 
 function confirmDraft() {
@@ -228,6 +283,7 @@ function executeDraft(shouldFail) {
 document.getElementById("confirmButton").addEventListener("click", confirmDraft);
 document.getElementById("rejectButton").addEventListener("click", rejectDraft);
 document.getElementById("simulateFailureButton").addEventListener("click", simulateFailure);
+document.getElementById("generateDraftButton").addEventListener("click", generateDraft);
 document.getElementById("useSelectionButton").addEventListener("click", () => {
   addTrace("target_confirmation_requested");
   addTrace("target_confirmed");

@@ -115,6 +115,32 @@ h2 {
   padding: 12px 16px;
 }
 
+.prompt-row {
+  display: grid;
+  grid-template-columns: auto minmax(260px, 1fr) 120px;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+}
+
+.prompt-row label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.prompt-row input {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 7px 9px;
+}
+
 .target-row strong {
   margin: 0 8px 0 10px;
 }
@@ -296,8 +322,13 @@ textarea {
   }
 
   .topbar,
-  .target-row {
+  .target-row,
+  .prompt-row {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .prompt-row {
+    display: flex;
   }
 }
