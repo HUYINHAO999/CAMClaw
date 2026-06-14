@@ -22,46 +22,36 @@ The user-facing behavior should be:
 
 ## User Stories
 
-1. As a CAM user, I want natural language requests to produce a reviewable plan before execution, so that I can inspect what the Agent intends to do.
-2. As a CAM user, I want to edit draft machining inputs before confirming, so that I can correct tool choices, operation names, or parameter values.
-3. As a CAM user, I want to reject an entire AgentPlanDraft with a reason, so that the Agent can generate a better plan from my feedback.
-4. As a CAM user, I want the system to ask before using the current selection as a command target, so that ambiguous prompts do not silently modify the wrong object.
-5. As a CAM user, I want commands to name the selected object's type and display name before using it, so that I can verify the target.
-6. As a CAM user, I want a clear error when the current selection is the wrong object type, so that I know what object to select next.
-7. As a CAM user, I want failed workflows to stop without automatic rollback, so that the software does not silently delete or undo objects I may want to inspect.
-8. As a CAM user, I want every Agent action to be traceable, so that I can understand what was proposed, confirmed, executed, and returned.
-9. As a CAM user, I want ordinary UI interactions like hover, panel expansion, viewport movement, and focus to stay lightweight, so that the UI remains responsive and simple.
-10. As a CAM user, I want business actions like creating operations or generating toolpaths to use the same command route whether triggered by UI or Agent, so that behavior is consistent.
-11. As a CAM user, I want Agent automation to reuse Component Consoles, so that the Agent does not bypass established software behavior.
-12. As a CAM user, I want the Agent to avoid using UI tree labels as stable references, so that renamed nodes or duplicated names do not cause incorrect actions.
-13. As an Agent user, I want Skills to compose existing commands, so that repeated workflows can be automated without duplicating CAM business logic.
-14. As an Agent user, I want Skills to stop when a step fails, so that later steps do not run on invalid assumptions.
-15. As an Agent user, I want Skills to pass newly created object IDs between steps, so that workflows can create an operation and then update or generate toolpaths for that same object.
-16. As an Agent user, I want variable binding to fail strictly when result data is missing, so that the Agent does not guess IDs from free text.
-17. As an Agent user, I want LLM decisions to happen before Skill execution, so that Skills remain simple workflow composition rather than process-recommendation engines.
-18. As an Agent user, I want the LLM to decide operation type, tool, and draft parameters, so that process intelligence is not hardcoded inside Skills.
-19. As an Agent user, I want confirmation to happen once for a whole workflow based on the highest-risk step, so that I am not spammed by repetitive prompts.
-20. As an Agent user, I want a rejected plan reason to influence the next generated plan, so that the Agent learns from my correction in the current workflow.
-21. As a developer, I want Component Consoles to expose structured command entry points, so that UI, tests, Skills, and Agent automation can all call the system without UI event simulation.
-22. As a developer, I want Component Consoles to stay thin coordinators, so that low-level business logic stays in item operations, command objects, services, and CAM Core.
-23. As a developer, I want Validator logic outside Component Consoles, so that Consoles do not become bloated policy containers.
-24. As a developer, I want global command IDs, so that Skills, Trace, confirmation policy, schemas, and command registry can reference commands unambiguously.
-25. As a developer, I want command registry files to be checked against runtime supported commands, so that declared Agent capabilities cannot drift from implemented Console capabilities.
-26. As a developer, I want global object IDs, so that future object-database integration can become the authority for object identity.
-27. As a developer, I want object type hints to be optional hints rather than authority, so that Repository lookup remains the source of truth.
-28. As a developer, I want command results to expose `primary_object_id`, so that Skill variable binding can use a stable, non-positional result field.
-29. As a developer, I want `object_ids` to be unordered affected-object lists, so that they can support trace, refresh, and audit without becoming fragile variable bindings.
-30. As a developer, I want future commands to be able to add `named_object_ids`, so that multi-output workflows can become explicit without breaking V1.
-31. As a developer, I want AgentPlanDrafts to be Trace artifacts rather than Project objects, so that Agent process state does not pollute CAM project data.
-32. As a developer, I want selection to be only a candidate target, so that command execution always resolves to an explicit `target_object_id`.
-33. As a developer, I want UI controls that start from tree items to resolve those items to business object IDs, so that commands remain UI-control agnostic.
-34. As a developer, I want Skills to explicitly bind to target consoles in V1, so that implementation is debuggable without introducing an early ConsoleRouter.
-35. As a developer, I want the architecture to allow a future ConsoleRouter or binding registry, so that the system can scale when the number of consoles grows.
-36. As a QA engineer, I want to test AgentPlanDraft review rules at the highest behavior seam, so that tests verify user-visible constraints rather than internal widget details.
-37. As a QA engineer, I want to test Skill runtime step execution and partial failure, so that workflow behavior is reliable.
-38. As a QA engineer, I want to test Gateway validation before Console dispatch, so that invalid Agent requests cannot reach Component Consoles.
-39. As a QA engineer, I want to test Component Console structured commands without UI, so that the system proves it can operate independent of visible UI.
-40. As a QA engineer, I want to test target resolution and selection confirmation, so that ambiguous targets never execute silently.
+1. As a CAM user, I want to say "给当前型腔做粗加工", so that the software can propose an operation plan without me manually finding every command.
+2. As a CAM user, I want to review the proposed operation type before execution, so that the Agent does not create the wrong machining operation.
+3. As a CAM user, I want to review the proposed tool before execution, so that the Agent does not use an unsuitable cutter.
+4. As a CAM user, I want to review the proposed stepover, stepdown, tolerance, and feed-related parameters before execution, so that I can correct unsafe or inefficient values.
+5. As a CAM user, I want to edit draft parameter values directly in the review step, so that I can keep a good plan but adjust the details.
+6. As a CAM user, I want to reject the whole proposed plan with a reason, so that the Agent can regenerate a better plan instead of forcing me to manually repair it.
+7. As a CAM user, I want the next generated plan to consider my rejection reason, so that repeated mistakes are less likely.
+8. As a CAM user, I want to say "只要粗加工，不要精加工", so that the Agent regenerates a simpler plan rather than making me delete steps manually.
+9. As a CAM user, I want the software to ask before using the currently selected object, so that vague requests do not silently operate on the wrong object.
+10. As a CAM user, I want the confirmation prompt to name the currently selected object, so that I know exactly what will be changed.
+11. As a CAM user, I want a clear prompt when the current selection is the wrong kind of object, so that I know whether to select a feature, operation, setup, or tool.
+12. As a CAM user, I want to generate a toolpath for a selected operation from natural language, so that I do not need to hunt through menus for a common action.
+13. As a CAM user, I want the Agent to stop when required information is missing, so that it asks for a tool, target, or parameter instead of guessing.
+14. As a CAM user, I want a failed Agent workflow to stop without automatic cleanup, so that I can inspect any objects that were already created.
+15. As a CAM user, I want to see what part of a multi-step plan succeeded and where it failed, so that I can decide whether to continue, fix, or undo manually.
+16. As a CAM user, I want Agent-created operations and toolpaths to appear through the normal software UI, so that they feel like regular CAM objects rather than separate Agent artifacts.
+17. As a CAM user, I want tree labels and display names to be treated as display-only, so that renaming an item does not cause the Agent to target the wrong object.
+18. As a CAM user, I want ordinary UI actions like expanding a panel or rotating the viewport to stay fast and local, so that adding Agent support does not make the interface feel heavy.
+19. As a CAM user, I want Agent-triggered commands and manually triggered commands to produce consistent CAM results, so that I can trust both paths.
+20. As a CAM user, I want the Agent to explain what it is about to do in CAM language, so that I can judge the plan before approving it.
+21. As a novice CAM user, I want the Agent to propose a reasonable machining workflow for a selected feature, so that I can learn a sensible starting point.
+22. As a novice CAM user, I want the Agent to tell me when the current context is insufficient, so that I know what to select or define next.
+23. As a process engineer, I want repeatable prompt workflows for common machining patterns, so that roughing, finishing, and toolpath generation can be made consistent.
+24. As a process engineer, I want reusable workflows to follow the same software command path as manual operations, so that automation does not drift from normal CAM behavior.
+25. As a reviewer, I want a trace of the prompt, draft, confirmation, execution result, and failure reason, so that I can audit how an Agent-produced CAM object was created.
+26. As a reviewer, I want rejected plans and rejection reasons to be traceable, so that Agent behavior can be improved from real feedback.
+27. As an automation user, I want controlled scripts to call the same approved capabilities as natural-language prompts, so that scripts are powerful but not unrestricted.
+28. As an automation user, I want unsupported or unsafe requests to be blocked before execution, so that scripts and Agent plans cannot bypass the software's safety boundary.
+29. As a CAM user, I want future workflows to support templates and RAG-based recommendations without changing how I confirm the final plan, so that added intelligence still feels controlled.
+30. As a CAM user, I want the system to preserve a clear boundary between "the Agent proposes" and "the CAM software executes", so that responsibility remains understandable.
 
 ## Implementation Decisions
 
