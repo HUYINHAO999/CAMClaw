@@ -137,6 +137,26 @@ class OpenAICompatibleClientTests(unittest.TestCase):
 
         self.assertIn("absolute http(s) URL", str(caught.exception))
 
+    def test_rejects_missing_api_key_before_http_call(self):
+        client = OpenAICompatibleClient(
+            LlmConfig(
+                base_url="https://llm.example",
+                api_key="",
+                model="gpt-5.5",
+            )
+        )
+
+        with self.assertRaises(LlmClientError) as caught:
+            client.create_plan_json(
+                trace_id="trace_http_003",
+                user_request="给当前型腔做粗加工",
+                target_object_id="feature_001",
+                rejection_reason="",
+                response_contract="Return JSON",
+            )
+
+        self.assertIn("CAMCLAW_LLM_API_KEY is required", str(caught.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

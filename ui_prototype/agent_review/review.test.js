@@ -76,6 +76,7 @@ vm.runInContext(source, context);
 
 assert.strictEqual(document.elements.draftStatus.textContent, "待审核");
 assert.strictEqual(document.elements.parameterForm.children.length, 5);
+assert.strictEqual(document.elements.generateDraftButton.textContent, "生成草案");
 
 context.confirmDraft();
 

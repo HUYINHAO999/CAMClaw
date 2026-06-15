@@ -61,6 +61,9 @@ class OpenAICompatibleClient:
         rejection_reason: str,
         response_contract: str,
     ) -> str:
+        if not self._config.api_key:
+            raise LlmClientError("CAMCLAW_LLM_API_KEY is required.")
+
         payload = {
             "model": self._config.model,
             "messages": [

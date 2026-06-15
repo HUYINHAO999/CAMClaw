@@ -33,6 +33,7 @@ const parameterLabels = {
 const state = {
   draft: initialDraft,
   executionResult: null,
+  isPlanning: false,
 };
 
 function stepInputs() {
@@ -160,13 +161,17 @@ function renderControls() {
   document.getElementById("rejectButton").disabled = !editable;
   document.getElementById("simulateFailureButton").disabled = !editable;
   document.getElementById("rejectReason").disabled = !editable;
-  document.getElementById("generateDraftButton").disabled = state.draft.status === "confirmed";
+  const generateButton = document.getElementById("generateDraftButton");
+  generateButton.disabled = state.isPlanning || state.draft.status === "confirmed";
+  generateButton.textContent = state.isPlanning ? "生成中..." : "生成草案";
 }
 
 async function generateDraft() {
   const userRequest = document.getElementById("userRequest").value.trim();
   if (!userRequest) return;
+  if (state.isPlanning) return;
 
+  state.isPlanning = true;
   state.executionResult = {
     ok: false,
     error_code: "planning",
@@ -175,12 +180,15 @@ async function generateDraft() {
     object_ids: [],
     trace_events: [...state.draft.trace_events],
   };
-  renderResult();
+  render();
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 35000);
   try {
     const response = await fetch("/v1/agent/plan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
       body: JSON.stringify({
         trace_id: `trace_ui_${Date.now()}`,
         user_request: userRequest,
@@ -195,17 +203,24 @@ async function generateDraft() {
 
     state.draft = normalizeBackendDraft(payload);
     state.executionResult = null;
+    state.isPlanning = false;
     render();
   } catch (error) {
+    const message = error.name === "AbortError"
+      ? "请求超时：Python backend 或 LLM 接口 35 秒内没有返回。"
+      : error.message;
     state.executionResult = {
       ok: false,
       error_code: "plan_request_failed",
-      message: error.message,
+      message,
       primary_object_id: "",
       object_ids: [],
       trace_events: [...state.draft.trace_events],
     };
+    state.isPlanning = false;
     render();
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
