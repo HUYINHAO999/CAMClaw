@@ -5,7 +5,9 @@ import os
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict
+from urllib.parse import urlparse
 
 
 @dataclass(frozen=True)
@@ -16,10 +18,29 @@ class LlmConfig:
 
     @staticmethod
     def from_env() -> "LlmConfig":
+        return LlmConfig.from_file().with_environment_overrides()
+
+    @staticmethod
+    def from_file(config_path: Path | None = None) -> "LlmConfig":
+        path = config_path or Path(__file__).resolve().parents[1] / "config" / "agent_backend.json"
+        if not path.is_file():
+            return LlmConfig(base_url="", api_key="", model="")
+
+        with path.open("r", encoding="utf-8") as config_file:
+            config = json.load(config_file)
+
+        llm_config = config.get("llm", {})
         return LlmConfig(
-            base_url=os.environ.get("CAMCLAW_LLM_BASE_URL", ""),
-            api_key=os.environ.get("CAMCLAW_LLM_API_KEY", ""),
-            model=os.environ.get("CAMCLAW_LLM_MODEL", "gpt-5.5"),
+            base_url=str(llm_config.get("base_url", "")),
+            api_key=str(llm_config.get("api_key", "")),
+            model=str(llm_config.get("model", "")),
+        )
+
+    def with_environment_overrides(self) -> "LlmConfig":
+        return LlmConfig(
+            base_url=os.environ.get("CAMCLAW_LLM_BASE_URL", self.base_url),
+            api_key=os.environ.get("CAMCLAW_LLM_API_KEY", self.api_key),
+            model=os.environ.get("CAMCLAW_LLM_MODEL", self.model),
         )
 
 
@@ -81,7 +102,11 @@ class OpenAICompatibleClient:
         return self._extract_message_content(json.loads(body))
 
     def _chat_completions_url(self) -> str:
-        return self._config.base_url.rstrip("/") + "/v1/chat/completions"
+        base_url = self._config.base_url.rstrip("/")
+        parsed = urlparse(base_url)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            raise LlmClientError("CAMCLAW_LLM_BASE_URL must be an absolute http(s) URL.")
+        return base_url + "/v1/chat/completions"
 
     @staticmethod
     def _extract_message_content(response: Dict[str, Any]) -> str:

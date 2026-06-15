@@ -1,0 +1,6 @@
+{
+  "llm": {
+    "base_url": "https://jspin.cn",
+    "model": "gpt-5.5"
+  }
+}
