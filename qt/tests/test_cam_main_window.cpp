@@ -4,6 +4,7 @@
 #include "camclaw/qt/OperationEditDialog.h"
 
 #include <QDialogButtonBox>
+#include <QListWidget>
 #include <QtTest/QtTest>
 
 class FakeAgentDraftService : public camclaw::AgentDraftService {
@@ -28,6 +29,18 @@ public:
             inputs["scope"] = "all";
             inputs["toolpath_ids"] = "";
             result.draft.addSkillStep(camclaw::SkillStepDraft("browser.setToolpathVisibility", inputs));
+            return result;
+        }
+        if (request.user_request.contains(QString::fromUtf8("打开树上的型腔铣工序"))
+            || request.user_request.contains(QString::fromUtf8("步进改小"))) {
+            inputs.clear();
+            inputs["scope"] = "operation_type";
+            inputs["operation_type"] = "pocket";
+            inputs["parameter_name"] = "stepover";
+            inputs["parameter_value"] = "0.8";
+            inputs["recompute_toolpath"] = "true";
+            inputs["schema_id"] = "browser.updateOperation.v1";
+            result.draft.addSkillStep(camclaw::SkillStepDraft("browser.updateOperation", inputs));
             return result;
         }
         if (request.target_object_id.contains("holes") || request.target_display_name.contains(QString::fromUtf8("孔"))) {
@@ -92,6 +105,7 @@ private slots:
     void agentPromptMachinesPocketHolesAndPlaneWithMatchingToolpaths();
     void clickingToolpathNodeTogglesVisibility();
     void agentCanHideAndShowAllToolpaths();
+    void agentDialogShowsHumanInLoopForAmbiguousOperationTarget();
 };
 
 static QTreeWidgetItem* find_item(QTreeWidget* tree, const QString& text_part)
@@ -622,6 +636,59 @@ void CamMainWindowTest::agentCanHideAndShowAllToolpaths()
     });
     QTest::mouseClick(window.agentCreateOperationButton(), Qt::LeftButton);
     QVERIFY(window.viewport()->statusText().contains("toolpath_op_roughing_feature_001"));
+}
+
+void CamMainWindowTest::agentDialogShowsHumanInLoopForAmbiguousOperationTarget()
+{
+    FakeAgentDraftService draft_service;
+    camclaw::CamMainWindow window(draft_service);
+    window.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&window));
+
+    window.browserTree()->clearSelection();
+    QTest::mouseClick(window.createRoughingOperationButton(), Qt::LeftButton);
+    QTest::mouseClick(window.createRoughingOperationButton(), Qt::LeftButton);
+    QVERIFY(find_item(window.browserTree(), "op_roughing") != 0);
+    QVERIFY(find_item(window.browserTree(), "op_roughing_2") != 0);
+
+    QTreeWidgetItem* operation = find_item(window.browserTree(), "op_roughing");
+    QVERIFY(operation != 0);
+    window.browserTree()->setCurrentItem(operation);
+
+    QTimer::singleShot(0, [&window]() {
+        camclaw::AgentReviewDialog* dialog = window.findChild<camclaw::AgentReviewDialog*>("agentReviewDialog");
+        QVERIFY(dialog != 0);
+        QLineEdit* prompt = dialog->findChild<QLineEdit*>("agentPromptEdit");
+        QVERIFY(prompt != 0);
+        prompt->setText(QString::fromUtf8("帮我打开树上的型腔铣工序，把步进改小一些，然后重新计算"));
+        QPushButton* generate = dialog->findChild<QPushButton*>("generateDraftButton");
+        QVERIFY(generate != 0);
+        QTest::mouseClick(generate, Qt::LeftButton);
+        QPushButton* confirm = dialog->findChild<QPushButton*>("confirmButton");
+        QVERIFY(confirm != 0);
+
+        QTimer::singleShot(0, []() {
+            QDialog* clarification = QApplication::activeModalWidget()
+                ? qobject_cast<QDialog*>(QApplication::activeModalWidget())
+                : 0;
+            QVERIFY(clarification != 0);
+            QCOMPARE(clarification->objectName(), QString("humanInLoopDialog"));
+            QListWidget* candidates = clarification->findChild<QListWidget*>("humanInLoopCandidateList");
+            QVERIFY(candidates != 0);
+            QCOMPARE(candidates->count(), 2);
+            candidates->setCurrentRow(1);
+            QDialogButtonBox* buttons = clarification->findChild<QDialogButtonBox*>("humanInLoopButtons");
+            QVERIFY(buttons != 0);
+            QTest::mouseClick(buttons->button(QDialogButtonBox::Ok), Qt::LeftButton);
+        });
+
+        QTest::mouseClick(confirm, Qt::LeftButton);
+    });
+
+    QTest::mouseClick(window.agentCreateOperationButton(), Qt::LeftButton);
+
+    QVERIFY(find_item(window.browserTree(), "op_roughing_2") != 0);
+    QVERIFY(find_item(window.browserTree(), "toolpath_op_roughing_2") != 0);
 }
 
 QTEST_MAIN(CamMainWindowTest)

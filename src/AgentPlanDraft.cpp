@@ -135,7 +135,7 @@ DraftEditResult AgentPlanDraft::setStepInput(std::size_t step_index, const std::
 {
     DraftEditResult result;
 
-    if (status_ != DraftStatus::PendingReview) {
+    if (status_ == DraftStatus::Rejected) {
         result.status = DraftEditStatus::DraftClosed;
         result.message = "Draft is no longer editable.";
         return result;

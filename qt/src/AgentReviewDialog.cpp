@@ -6,6 +6,9 @@
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QApplication>
+#include <QInputDialog>
+#include <QListWidget>
+#include <QMessageBox>
 #include <QVBoxLayout>
 
 #include <map>
@@ -45,6 +48,7 @@ AgentReviewDialog::AgentReviewDialog(
     const QString& target_display_name,
     AgentDraftService& draft_service,
     AgentPlanExecutor& executor,
+    HumanInLoopService* human_in_loop_service,
     QWidget* parent)
     : QDialog(parent),
       target_object_id_(target_object_id),
@@ -52,6 +56,7 @@ AgentReviewDialog::AgentReviewDialog(
       draft_service_(draft_service),
       draft_("trace_qt_empty"),
       executor_(executor),
+      human_in_loop_service_(human_in_loop_service),
       has_result_(false),
       execution_succeeded_(false),
       created_toolpath_id_(),
@@ -388,7 +393,15 @@ void AgentReviewDialog::confirmDraft()
         return;
     }
     draft_.confirm();
-    setExecutionResult(executor_.execute(draft_));
+    const AgentPlanExecutionResult result = executor_.execute(draft_);
+    if (result.needs_clarification && requestClarificationAndResume(result)) {
+        render();
+        if (execution_succeeded_) {
+            accept();
+        }
+        return;
+    }
+    setExecutionResult(result);
     render();
     if (execution_succeeded_) {
         accept();
@@ -485,6 +498,85 @@ void AgentReviewDialog::setExecutionResult(const AgentPlanExecutionResult& resul
     }
     body += "]\n}";
     result_body_ = body;
+}
+
+bool AgentReviewDialog::requestClarificationAndResume(const AgentPlanExecutionResult& result)
+{
+    if (human_in_loop_service_ == 0) {
+        setExecutionResult(result);
+        return false;
+    }
+
+    QDialog clarification_dialog(this);
+    clarification_dialog.setObjectName("humanInLoopDialog");
+    clarification_dialog.setWindowTitle(QString::fromUtf8("需要补充目标"));
+
+    QVBoxLayout* layout = new QVBoxLayout(&clarification_dialog);
+    QLabel* question = new QLabel(fromStd(result.clarification.question), &clarification_dialog);
+    question->setObjectName("humanInLoopQuestionLabel");
+    question->setWordWrap(true);
+    layout->addWidget(question);
+
+    QListWidget* candidate_list = new QListWidget(&clarification_dialog);
+    candidate_list->setObjectName("humanInLoopCandidateList");
+    for (std::size_t index = 0u; index < result.clarification.candidates.size(); ++index) {
+        const ClarificationCandidate& candidate = result.clarification.candidates[index];
+        QListWidgetItem* item = new QListWidgetItem(
+            fromStd(candidate.label)
+                + " / "
+                + fromStd(candidate.id)
+                + "  "
+                + fromStd(candidate.description),
+            candidate_list);
+        item->setData(Qt::UserRole, fromStd(candidate.id));
+    }
+    if (candidate_list->count() > 0) {
+        candidate_list->setCurrentRow(candidate_list->count() - 1);
+    }
+    layout->addWidget(candidate_list);
+
+    QLineEdit* free_text = new QLineEdit(&clarification_dialog);
+    free_text->setObjectName("humanInLoopFreeTextEdit");
+    free_text->setPlaceholderText(QString::fromUtf8("也可以输入：最后一个 / 第2个 / 工序名称"));
+    layout->addWidget(free_text);
+
+    QDialogButtonBox* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &clarification_dialog);
+    buttons->setObjectName("humanInLoopButtons");
+    layout->addWidget(buttons);
+    connect(buttons, SIGNAL(accepted()), &clarification_dialog, SLOT(accept()));
+    connect(buttons, SIGNAL(rejected()), &clarification_dialog, SLOT(reject()));
+
+    if (clarification_dialog.exec() != QDialog::Accepted) {
+        setResultMessage(
+            QString::fromUtf8("等待澄清"),
+            QString::fromUtf8("{\n  \"ok\": false,\n  \"error_code\": \"clarification_cancelled\",\n  \"message\": \"用户取消了目标澄清。\"\n}"));
+        return false;
+    }
+
+    ClarificationResponse response;
+    response.clarification_id = result.clarification.clarification_id;
+    const QString typed_text = free_text->text().trimmed();
+    if (!typed_text.isEmpty()) {
+        response.free_text = toStd(typed_text);
+    } else if (candidate_list->currentItem() != 0) {
+        response.selected_ids.push_back(toStd(candidate_list->currentItem()->data(Qt::UserRole).toString()));
+    }
+
+    const ClarificationResumeResult resume = human_in_loop_service_->submitResponse(response);
+    if (!resume.ok) {
+        setResultMessage(
+            QString::fromUtf8("澄清失败"),
+            QString::fromUtf8("{\n  \"ok\": false,\n  \"error_code\": ")
+                + quote(fromStd(resume.error_code))
+                + QString::fromUtf8(",\n  \"message\": ")
+                + quote(fromStd(resume.message))
+                + QString::fromUtf8("\n}"));
+        return false;
+    }
+
+    draft_ = resume.resumed_draft;
+    setExecutionResult(executor_.execute(draft_));
+    return true;
 }
 
 void AgentReviewDialog::setResultMessage(const QString& status, const QString& body)

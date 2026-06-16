@@ -2,6 +2,7 @@
 #define CAMCLAW_QT_CAM_MAIN_WINDOW_H
 
 #include "camclaw/AgentPlanExecutor.h"
+#include "camclaw/HumanInLoopService.h"
 #include "camclaw/PlanDraftFactory.h"
 #include "camclaw/SkillRuntime.h"
 #include "camclaw/qt/AgentDraftService.h"
@@ -61,6 +62,7 @@ private:
     BrowserConsole browser_console_;
     ActionGateway gateway_;
     SkillRuntime skill_runtime_;
+    HumanInLoopService human_in_loop_service_;
     AgentPlanExecutor executor_;
     PlanDraftFactory draft_factory_;
     HttpAgentDraftService draft_service_;

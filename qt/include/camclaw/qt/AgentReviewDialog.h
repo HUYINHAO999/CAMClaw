@@ -3,6 +3,7 @@
 
 #include "camclaw/AgentPlanDraft.h"
 #include "camclaw/AgentPlanExecutor.h"
+#include "camclaw/HumanInLoopService.h"
 #include "camclaw/qt/AgentDraftService.h"
 
 #include <QDialog>
@@ -23,6 +24,7 @@ public:
         const QString& target_display_name,
         AgentDraftService& draft_service,
         AgentPlanExecutor& executor,
+        HumanInLoopService* human_in_loop_service = 0,
         QWidget* parent = 0);
 
     QString parameterValue(const QString& name) const;
@@ -51,6 +53,7 @@ private:
     void renderTrace();
     void renderControls();
     void setExecutionResult(const AgentPlanExecutionResult& result);
+    bool requestClarificationAndResume(const AgentPlanExecutionResult& result);
     void setResultMessage(const QString& status, const QString& body);
     QString statusText(DraftStatus status) const;
     QString draftStepText() const;
@@ -64,6 +67,7 @@ private:
     AgentDraftService& draft_service_;
     AgentPlanDraft draft_;
     AgentPlanExecutor& executor_;
+    HumanInLoopService* human_in_loop_service_;
     bool has_result_;
     bool execution_succeeded_;
     QString created_operation_id_;

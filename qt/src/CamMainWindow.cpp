@@ -58,7 +58,8 @@ CamMainWindow::CamMainWindow(QWidget* parent)
       browser_console_(repository_),
       gateway_(repository_, browser_console_),
       skill_runtime_(gateway_),
-      executor_(skill_runtime_),
+      human_in_loop_service_(),
+      executor_(skill_runtime_, repository_, human_in_loop_service_),
       draft_service_(QUrl("http://127.0.0.1:8765/v1/agent/plan")),
       active_draft_service_(&draft_service_),
       browser_tree_(0),
@@ -81,7 +82,8 @@ CamMainWindow::CamMainWindow(AgentDraftService& draft_service, QWidget* parent)
       browser_console_(repository_),
       gateway_(repository_, browser_console_),
       skill_runtime_(gateway_),
-      executor_(skill_runtime_),
+      human_in_loop_service_(),
+      executor_(skill_runtime_, repository_, human_in_loop_service_),
       draft_service_(QUrl("http://127.0.0.1:8765/v1/agent/plan")),
       active_draft_service_(&draft_service),
       browser_tree_(0),
@@ -277,7 +279,7 @@ void CamMainWindow::openAgentCreateOperationDialog()
     const QString display_name = selected_object.display_name.empty()
         ? selectedObjectId()
         : fromStd(selected_object.display_name);
-    AgentReviewDialog dialog(selectedObjectId(), display_name, *active_draft_service_, executor_, this);
+    AgentReviewDialog dialog(selectedObjectId(), display_name, *active_draft_service_, executor_, &human_in_loop_service_, this);
     dialog.exec();
     if (dialog.executionSucceeded()) {
         current_operation_id_ = dialog.createdOperationId();
