@@ -79,6 +79,7 @@ public:
     void addSkillStep(const SkillStepDraft& step);
     void addPlanningContext(const PlanningContextItem& item);
     DraftEditResult editStepInput(std::size_t step_index, const std::string& input_name, const std::string& value);
+    DraftEditResult setStepInput(std::size_t step_index, const std::string& input_name, const std::string& value);
     void confirm();
     void reject(const std::string& reason);
 

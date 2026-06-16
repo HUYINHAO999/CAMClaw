@@ -5,6 +5,11 @@ project(CAMClaw LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_AUTOMOC ON)
+
+if(MSVC)
+    add_compile_options(/utf-8)
+endif()
 
 add_library(camclaw_core
     src/AgentPlanDraft.cpp
@@ -12,8 +17,10 @@ add_library(camclaw_core
     src/AgentPlanExecutor.cpp
     src/AgentPlanExecutionResultJsonCodec.cpp
     src/AgentWorkflowService.cpp
+    src/HumanInLoopService.cpp
     src/PlanDraftFactory.cpp
     src/SkillRuntime.cpp
+    src/TargetResolver.cpp
     src/TraceService.cpp
 )
 
@@ -144,3 +151,71 @@ target_link_libraries(camclaw_trace_service_tests
 )
 
 add_test(NAME camclaw_trace_service_tests COMMAND camclaw_trace_service_tests)
+
+add_executable(camclaw_human_in_loop_tests
+    tests/test_human_in_loop.cpp
+)
+
+target_link_libraries(camclaw_human_in_loop_tests
+    PRIVATE
+        camclaw_core
+)
+
+add_test(NAME camclaw_human_in_loop_tests COMMAND camclaw_human_in_loop_tests)
+
+find_package(Qt6 COMPONENTS Widgets Network Test QUIET)
+
+if(Qt6_FOUND)
+    add_library(camclaw_qt_widgets
+        qt/src/AgentReviewDialog.cpp
+        qt/src/AgentDraftService.cpp
+        qt/src/BrowserTree.cpp
+        qt/src/CamMainWindow.cpp
+        qt/src/CamViewport.cpp
+        qt/src/OperationEditDialog.cpp
+        qt/include/camclaw/qt/AgentReviewDialog.h
+        qt/include/camclaw/qt/AgentDraftService.h
+        qt/include/camclaw/qt/BrowserTree.h
+        qt/include/camclaw/qt/CamMainWindow.h
+        qt/include/camclaw/qt/CamViewport.h
+        qt/include/camclaw/qt/OperationEditDialog.h
+    )
+
+    target_include_directories(camclaw_qt_widgets
+        PUBLIC
+            ${CMAKE_CURRENT_SOURCE_DIR}/qt/include
+    )
+
+    target_link_libraries(camclaw_qt_widgets
+        PUBLIC
+            camclaw_core
+            Qt6::Widgets
+            Qt6::Network
+    )
+
+    add_executable(camclaw_qt_app
+        qt/src/main.cpp
+    )
+
+    target_link_libraries(camclaw_qt_app
+        PRIVATE
+            camclaw_qt_widgets
+    )
+
+    add_executable(camclaw_qt_tests
+        qt/tests/test_cam_main_window.cpp
+    )
+
+    target_link_libraries(camclaw_qt_tests
+        PRIVATE
+            camclaw_qt_widgets
+            Qt6::Test
+    )
+
+    add_test(NAME camclaw_qt_tests COMMAND camclaw_qt_tests)
+    set_tests_properties(camclaw_qt_tests PROPERTIES
+        ENVIRONMENT "PATH=${Qt6_DIR}/../../../bin;$ENV{PATH};QT_QPA_PLATFORM=windows"
+    )
+else()
+    message(STATUS "Qt6 was not found; Qt app and Qt tests are disabled.")
+endif()

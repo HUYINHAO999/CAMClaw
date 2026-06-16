@@ -55,7 +55,7 @@ static int draft_factory_accepts_structured_proposal_and_optional_context()
 
     REQUIRE_EQ(camclaw::DraftStatus::PendingReview, draft.status());
     REQUIRE_EQ(1u, draft.stepCount());
-    REQUIRE_EQ(std::string("browser.create_roughing_operation_and_generate_toolpath"), draft.stepAt(0).skillId());
+    REQUIRE_EQ(std::string("browser.create_roughing_operation"), draft.stepAt(0).skillId());
     REQUIRE_EQ(std::string("feature_001"), draft.stepAt(0).inputValue("target_object_id"));
     REQUIRE_EQ(std::string("tool_010"), draft.stepAt(0).inputValue("tool_id"));
     REQUIRE_EQ(1u, draft.planningContextCount());

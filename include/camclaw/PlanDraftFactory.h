@@ -32,6 +32,9 @@ public:
     AgentPlanDraft createRoughingDraft(
         const RoughingPlanProposal& proposal,
         const PlanningContextProvider* context_provider) const;
+    AgentPlanDraft createRoughingOperationDraft(
+        const RoughingPlanProposal& proposal,
+        const PlanningContextProvider* context_provider) const;
 };
 
 } // namespace camclaw

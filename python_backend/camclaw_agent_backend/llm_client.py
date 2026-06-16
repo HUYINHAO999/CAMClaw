@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -64,24 +65,32 @@ class OpenAICompatibleClient:
         if not self._config.api_key:
             raise LlmClientError("CAMCLAW_LLM_API_KEY is required.")
 
+        instructions = (
+            "You produce CAM AgentPlanDraft inputs. "
+            + response_contract
+        )
+
         payload = {
             "model": self._config.model,
+            "temperature": 0.2,
+            "response_format": {"type": "json_object"},
+            "instructions": instructions,
             "messages": [
                 {
                     "role": "system",
-                    "content": (
-                        "You produce CAM AgentPlanDraft inputs. "
-                        + response_contract
-                    ),
+                    "content": instructions,
                 },
                 {
                     "role": "user",
-                    "content": {
-                        "trace_id": trace_id,
-                        "target_object_id": target_object_id,
-                        "user_request": user_request,
-                        "rejection_reason": rejection_reason,
-                    },
+                    "content": json.dumps(
+                        {
+                            "trace_id": trace_id,
+                            "target_object_id": target_object_id,
+                            "user_request": user_request,
+                            "rejection_reason": rejection_reason,
+                        },
+                        ensure_ascii=False,
+                    ),
                 },
             ],
         }
@@ -91,18 +100,38 @@ class OpenAICompatibleClient:
             data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
             headers={
                 "Authorization": f"Bearer {self._config.api_key}",
+                "Accept": "application/json",
                 "Content-Type": "application/json",
+                "User-Agent": "CAMClaw-AgentBackend/0.1",
             },
             method="POST",
         )
 
-        try:
-            with urllib.request.urlopen(request, timeout=30) as response:
-                body = response.read().decode("utf-8")
-        except urllib.error.URLError as exc:
-            raise LlmClientError(str(exc)) from exc
+        body = self._post_with_retries(request)
 
         return self._extract_message_content(json.loads(body))
+
+    def _post_with_retries(self, request: urllib.request.Request) -> str:
+        last_error: Exception | None = None
+        for attempt in range(3):
+            try:
+                with urllib.request.urlopen(request, timeout=45) as response:
+                    return response.read().decode("utf-8")
+            except urllib.error.HTTPError as exc:
+                body = exc.read().decode("utf-8", errors="replace")
+                raise LlmClientError(f"LLM service returned HTTP {exc.code}: {body}") from exc
+            except urllib.error.URLError as exc:
+                last_error = exc
+                time.sleep(0.5 + attempt * 0.75)
+            except OSError as exc:
+                last_error = exc
+                time.sleep(0.5 + attempt * 0.75)
+
+        raise LlmClientError(
+            "LLM service connection failed after retries. "
+            "Check CAMCLAW_LLM_BASE_URL/network/TLS/proxy. Last error: "
+            + str(last_error)
+        )
 
     def _chat_completions_url(self) -> str:
         base_url = self._config.base_url.rstrip("/")

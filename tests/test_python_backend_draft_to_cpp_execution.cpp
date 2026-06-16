@@ -35,7 +35,7 @@ static int python_backend_draft_can_be_confirmed_and_executed_by_cpp_core()
         "\"trace_id\":\"trace_bridge_001\","
         "\"status\":\"pending_review\","
         "\"steps\":[{"
-        "\"skill_id\":\"browser.create_roughing_operation_and_generate_toolpath\","
+        "\"skill_id\":\"browser.create_roughing_operation\","
         "\"inputs\":{"
         "\"target_object_id\":\"feature_001\","
         "\"operation_type\":\"roughing\","
@@ -66,7 +66,7 @@ static int python_backend_draft_can_be_confirmed_and_executed_by_cpp_core()
     REQUIRE_TRUE(execution_result.ok);
     REQUIRE_EQ(std::string("op_roughing_feature_001"), execution_result.primary_object_id);
     REQUIRE_TRUE(repository.exists("op_roughing_feature_001"));
-    REQUIRE_TRUE(repository.exists("toolpath_op_roughing_feature_001"));
+    REQUIRE_TRUE(!repository.exists("toolpath_op_roughing_feature_001"));
     REQUIRE_TRUE(contains_event(execution_result.trace_events, "gateway_validated"));
     REQUIRE_TRUE(contains_event(execution_result.trace_events, "draft_execution_completed"));
 

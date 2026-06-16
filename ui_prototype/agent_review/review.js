@@ -140,7 +140,8 @@ function renderResult() {
     return;
   }
 
-  resultStatus.textContent = state.executionResult.ok ? "执行成功" : "执行失败";
+  resultStatus.textContent = state.executionResult.status_label
+    || (state.executionResult.ok ? "执行成功" : "执行失败");
   resultBody.textContent = JSON.stringify(state.executionResult, null, 2);
 }
 
@@ -202,7 +203,15 @@ async function generateDraft() {
     }
 
     state.draft = normalizeBackendDraft(payload);
-    state.executionResult = null;
+    state.executionResult = {
+      ok: true,
+      error_code: "",
+      status_label: "草案已生成",
+      message: "草案已生成，请检查参数后确认执行。",
+      primary_object_id: stepInputs().target_object_id,
+      object_ids: [],
+      trace_events: [...state.draft.trace_events],
+    };
     state.isPlanning = false;
     render();
   } catch (error) {

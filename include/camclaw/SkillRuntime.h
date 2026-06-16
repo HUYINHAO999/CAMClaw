@@ -79,9 +79,16 @@ public:
     std::vector<std::string> supportedCommands() const;
 
 private:
+    ConsoleCommandResult createOperation(const ConsoleCommandRequest& request);
+    ConsoleCommandResult updateOperation(const ConsoleCommandRequest& request);
     ConsoleCommandResult createRoughingOperation(const ConsoleCommandRequest& request);
     ConsoleCommandResult generateToolpath(const ConsoleCommandRequest& request);
+    ConsoleCommandResult setToolpathVisibility(const ConsoleCommandRequest& request);
 
+    OperationCatalog operation_catalog_;
+    OperationFactory operation_factory_;
+    OperationService operation_service_;
+    ToolPathService toolpath_service_;
     Repository& repository_;
 };
 

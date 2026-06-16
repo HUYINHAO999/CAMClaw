@@ -8,6 +8,13 @@ AgentPlanDraft PlanDraftFactory::createRoughingDraft(
     const RoughingPlanProposal& proposal,
     const PlanningContextProvider* context_provider) const
 {
+    return createRoughingOperationDraft(proposal, context_provider);
+}
+
+AgentPlanDraft PlanDraftFactory::createRoughingOperationDraft(
+    const RoughingPlanProposal& proposal,
+    const PlanningContextProvider* context_provider) const
+{
     AgentPlanDraft draft(proposal.trace_id);
 
     if (context_provider != 0) {
@@ -25,7 +32,7 @@ AgentPlanDraft PlanDraftFactory::createRoughingDraft(
     inputs["stepdown"] = proposal.stepdown;
     inputs["tolerance"] = proposal.tolerance;
 
-    draft.addSkillStep(SkillStepDraft("browser.create_roughing_operation_and_generate_toolpath", inputs));
+    draft.addSkillStep(SkillStepDraft("browser.create_roughing_operation", inputs));
     return draft;
 }
 

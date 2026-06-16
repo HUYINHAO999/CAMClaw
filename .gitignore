@@ -1,4 +1,9 @@
 build/
+build-msvc/
+.idea/
+python_backend/.idea/
 .env
+.env.local
 __pycache__/
 *.pyc
+qt-test-output.txt

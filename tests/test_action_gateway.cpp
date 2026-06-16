@@ -139,6 +139,48 @@ static int default_registry_matches_browser_console_support()
     return EXIT_SUCCESS;
 }
 
+static int visibility_by_operation_type_hides_matching_operation_toolpaths_only()
+{
+    camclaw::Repository repository;
+    camclaw::CamObject pocket_operation("op_pocket_feature_001", camclaw::ObjectType::Operation, "型腔铣");
+    pocket_operation.attributes["operation_type"] = "pocket";
+    pocket_operation.attributes["toolpath_id"] = "toolpath_op_pocket_feature_001";
+    repository.save(pocket_operation);
+    camclaw::CamObject drilling_operation("op_drilling_feature_holes_001", camclaw::ObjectType::Operation, "钻孔");
+    drilling_operation.attributes["operation_type"] = "drilling";
+    drilling_operation.attributes["toolpath_id"] = "toolpath_op_drilling_feature_holes_001";
+    repository.save(drilling_operation);
+    camclaw::CamObject pocket_toolpath("toolpath_op_pocket_feature_001", camclaw::ObjectType::Toolpath, "型腔铣刀轨");
+    pocket_toolpath.parent_object_id = "op_pocket_feature_001";
+    pocket_toolpath.attributes["visible"] = "true";
+    repository.save(pocket_toolpath);
+    camclaw::CamObject drilling_toolpath("toolpath_op_drilling_feature_holes_001", camclaw::ObjectType::Toolpath, "钻孔刀轨");
+    drilling_toolpath.parent_object_id = "op_drilling_feature_holes_001";
+    drilling_toolpath.attributes["visible"] = "true";
+    repository.save(drilling_toolpath);
+
+    camclaw::BrowserConsole browser_console(repository);
+    camclaw::ActionGateway gateway(repository, browser_console);
+
+    camclaw::ConsoleCommandRequest request;
+    request.command_id = "browser.setToolpathVisibility";
+    request.source = "agent";
+    request.trace_id = "trace_visibility_operation_type";
+    request.target_object_id = "toolpath_op_drilling_feature_holes_001";
+    request.args["visibility"] = "hide";
+    request.args["scope"] = "operation_type";
+    request.args["operation_type"] = "pocket";
+
+    const camclaw::ConsoleCommandResult result = gateway.dispatch(request);
+
+    REQUIRE_TRUE(result.ok);
+    REQUIRE_EQ(std::string("toolpath_op_pocket_feature_001"), result.primary_object_id);
+    REQUIRE_EQ(std::string("false"), repository.get("toolpath_op_pocket_feature_001").attributes["visible"]);
+    REQUIRE_EQ(std::string("true"), repository.get("toolpath_op_drilling_feature_holes_001").attributes["visible"]);
+
+    return EXIT_SUCCESS;
+}
+
 int main()
 {
     int status = controlled_script_can_use_registered_console_command();
@@ -162,6 +204,11 @@ int main()
     }
 
     status = default_registry_matches_browser_console_support();
+    if (status != EXIT_SUCCESS) {
+        return status;
+    }
+
+    status = visibility_by_operation_type_hides_matching_operation_toolpaths_only();
     if (status != EXIT_SUCCESS) {
         return status;
     }

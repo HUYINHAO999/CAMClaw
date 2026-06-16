@@ -58,13 +58,19 @@ class OpenAICompatibleClientTests(unittest.TestCase):
 
         self.assertEqual("https://llm.example/v1/chat/completions", captured["url"])
         self.assertEqual("Bearer local-secret", captured["headers"]["Authorization"])
+        self.assertEqual("application/json", captured["headers"]["Accept"])
         self.assertEqual("application/json", captured["headers"]["Content-type"])
+        self.assertEqual("CAMClaw-AgentBackend/0.1", captured["headers"]["User-agent"])
         self.assertEqual("gpt-5.5", captured["body"]["model"])
+        self.assertEqual(0.2, captured["body"]["temperature"])
+        self.assertEqual({"type": "json_object"}, captured["body"]["response_format"])
+        self.assertIn("Return JSON", captured["body"]["instructions"])
+        user_content = json.loads(captured["body"]["messages"][1]["content"])
         self.assertEqual(
             "只要粗加工，不要精加工",
-            captured["body"]["messages"][1]["content"]["rejection_reason"],
+            user_content["rejection_reason"],
         )
-        self.assertEqual(30, captured["timeout"])
+        self.assertEqual(45, captured["timeout"])
         self.assertIn('"operation_type":"roughing"', content)
 
     def test_default_config_uses_project_llm_endpoint(self):

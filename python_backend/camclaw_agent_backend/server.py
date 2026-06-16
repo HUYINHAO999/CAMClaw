@@ -3,10 +3,11 @@ from __future__ import annotations
 import json
 import mimetypes
 from pathlib import Path
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict
+from urllib.parse import urlparse
 
-from .llm_client import LlmConfig, OpenAICompatibleClient
+from .llm_client import LlmClientError, LlmConfig, OpenAICompatibleClient
 from .planner import AgentPlanner, PlannerError, PlannerInput
 
 
@@ -15,27 +16,29 @@ class AgentBackendHandler(BaseHTTPRequestHandler):
     ui_root = Path(__file__).resolve().parents[2] / "ui_prototype" / "agent_review"
 
     def do_GET(self) -> None:
-        if self.path == "/":
+        request_path = self._request_path(self.path)
+        if request_path == "/":
             self._redirect("/agent-review/")
             return
 
-        if self.path == "/agent-review":
+        if request_path == "/agent-review":
             self._redirect("/agent-review/")
             return
 
-        if self.path == "/agent-review/":
+        if request_path == "/agent-review/":
             self._send_static_file(self.ui_root / "index.html")
             return
 
-        if self.path.startswith("/agent-review/"):
-            relative_path = self.path[len("/agent-review/") :]
+        if request_path.startswith("/agent-review/"):
+            relative_path = request_path[len("/agent-review/") :]
             self._send_static_file(self.ui_root / relative_path)
             return
 
         self._send_json(404, {"error_code": "not_found"})
 
     def do_POST(self) -> None:
-        if self.path != "/v1/agent/plan":
+        request_path = self._request_path(self.path)
+        if request_path != "/v1/agent/plan":
             self._send_json(404, {"error_code": "not_found"})
             return
 
@@ -46,6 +49,7 @@ class AgentBackendHandler(BaseHTTPRequestHandler):
                     trace_id=str(payload["trace_id"]),
                     user_request=str(payload["user_request"]),
                     target_object_id=str(payload["target_object_id"]),
+                    target_display_name=str(payload.get("target_display_name", "")),
                     rejection_reason=str(payload.get("rejection_reason", "")),
                 )
             )
@@ -54,6 +58,9 @@ class AgentBackendHandler(BaseHTTPRequestHandler):
             return
         except PlannerError as exc:
             self._send_json(422, {"error_code": exc.error_code, "message": exc.message})
+            return
+        except LlmClientError as exc:
+            self._send_json(503, {"error_code": "llm_service_unavailable", "message": str(exc)})
             return
         except Exception as exc:
             self._send_json(500, {"error_code": "planner_failed", "message": str(exc)})
@@ -77,6 +84,7 @@ class AgentBackendHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
 
@@ -93,6 +101,7 @@ class AgentBackendHandler(BaseHTTPRequestHandler):
         self.send_response(status_code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
 
@@ -103,9 +112,13 @@ class AgentBackendHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
 
+    @staticmethod
+    def _request_path(raw_path: str) -> str:
+        return urlparse(raw_path).path
+
 
 def run(host: str = "127.0.0.1", port: int = 8765) -> None:
-    HTTPServer((host, port), AgentBackendHandler).serve_forever()
+    ThreadingHTTPServer((host, port), AgentBackendHandler).serve_forever()
 
 
 if __name__ == "__main__":

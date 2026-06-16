@@ -131,6 +131,27 @@ DraftEditResult AgentPlanDraft::editStepInput(std::size_t step_index, const std:
     return result;
 }
 
+DraftEditResult AgentPlanDraft::setStepInput(std::size_t step_index, const std::string& input_name, const std::string& value)
+{
+    DraftEditResult result;
+
+    if (status_ != DraftStatus::PendingReview) {
+        result.status = DraftEditStatus::DraftClosed;
+        result.message = "Draft is no longer editable.";
+        return result;
+    }
+
+    if (step_index >= steps_.size()) {
+        result.status = DraftEditStatus::StepNotFound;
+        result.message = "Draft step does not exist.";
+        return result;
+    }
+
+    steps_[step_index].setInputValue(input_name, value);
+    trace_events_.push_back("draft_input_edited");
+    return result;
+}
+
 void AgentPlanDraft::confirm()
 {
     if (status_ != DraftStatus::PendingReview) {

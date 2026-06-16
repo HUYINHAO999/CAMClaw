@@ -37,6 +37,8 @@ struct CamObject {
     std::string object_id;
     ObjectType object_type;
     std::string display_name;
+    std::string parent_object_id;
+    std::map<std::string, std::string> attributes;
 };
 
 class Repository {
@@ -44,9 +46,116 @@ public:
     bool save(const CamObject& object);
     bool exists(const std::string& object_id) const;
     CamObject get(const std::string& object_id) const;
+    bool update(const CamObject& object);
+    bool remove(const std::string& object_id);
+    std::vector<CamObject> objectsByType(ObjectType object_type) const;
 
 private:
     std::map<std::string, CamObject> objects_;
+};
+
+struct OperationDefinition {
+    OperationDefinition()
+    {
+    }
+
+    OperationDefinition(
+        const std::string& type,
+        const std::string& name,
+        const std::map<std::string, std::string>& defaults)
+        : operation_type(type),
+          display_name(name),
+          default_parameters(defaults)
+    {
+    }
+
+    std::string operation_type;
+    std::string display_name;
+    std::map<std::string, std::string> default_parameters;
+};
+
+class OperationCatalog {
+public:
+    static OperationCatalog defaults();
+
+    void registerDefinition(const OperationDefinition& definition);
+    bool find(const std::string& operation_type, OperationDefinition& definition) const;
+    std::vector<OperationDefinition> definitions() const;
+
+private:
+    std::map<std::string, OperationDefinition> definitions_;
+};
+
+struct CreateOperationRequest {
+    std::string operation_type;
+    std::string target_object_id;
+    std::map<std::string, std::string> parameters;
+};
+
+class OperationFactory {
+public:
+    explicit OperationFactory(const OperationCatalog& catalog);
+
+    bool create(
+        Repository& repository,
+        const CreateOperationRequest& request,
+        CamObject& operation,
+        std::string& error_code,
+        std::string& message) const;
+
+private:
+    std::string baseObjectId(const CreateOperationRequest& request) const;
+    std::string uniqueObjectId(Repository& repository, const std::string& base_id) const;
+
+    const OperationCatalog& catalog_;
+};
+
+class OperationService {
+public:
+    OperationService(Repository& repository, const OperationFactory& factory);
+
+    bool createOperation(
+        const CreateOperationRequest& request,
+        CamObject& operation,
+        std::string& error_code,
+        std::string& message) const;
+    bool updateOperationParameter(
+        const std::string& operation_object_id,
+        const std::string& parameter_name,
+        const std::string& parameter_value,
+        std::string& error_code,
+        std::string& message) const;
+
+private:
+    Repository& repository_;
+    const OperationFactory& factory_;
+};
+
+class ToolPathService {
+public:
+    explicit ToolPathService(Repository& repository);
+
+    bool generateToolPath(
+        const std::string& operation_object_id,
+        CamObject& toolpath,
+        std::string& error_code,
+        std::string& message) const;
+
+    bool deleteToolPathForOperation(const std::string& operation_object_id);
+    bool setToolPathVisibility(
+        const std::string& toolpath_object_id,
+        bool visible,
+        std::string& error_code,
+        std::string& message);
+    bool toggleToolPathVisibility(
+        const std::string& toolpath_object_id,
+        bool& visible,
+        std::string& error_code,
+        std::string& message);
+    std::vector<std::string> setAllToolPathVisibility(bool visible);
+
+private:
+    Repository& repository_;
 };
 
 struct SelectionCandidate {
