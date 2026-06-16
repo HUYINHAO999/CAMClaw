@@ -1,8 +1,6 @@
 #ifndef CAMCLAW_HUMAN_IN_LOOP_SERVICE_H
 #define CAMCLAW_HUMAN_IN_LOOP_SERVICE_H
 
-#include "camclaw/AgentPlanDraft.h"
-
 #include <map>
 #include <string>
 #include <vector>
@@ -66,21 +64,20 @@ struct ClarificationResponse {
 
 struct ClarificationResumeResult {
     ClarificationResumeResult()
-        : ok(false),
-          resumed_draft("")
+        : ok(false)
     {
     }
 
     bool ok;
     std::string error_code;
     std::string message;
-    AgentPlanDraft resumed_draft;
+    std::vector<std::string> selected_ids;
 };
 
 class HumanInLoopService {
 public:
     ClarificationRequest createRequest(
-        const AgentPlanDraft& draft,
+        const std::string& trace_id,
         std::size_t blocked_action_index,
         const std::string& reason,
         const std::string& subject_kind,
@@ -95,12 +92,10 @@ public:
 
 private:
     struct PendingClarification {
-        AgentPlanDraft draft;
         ClarificationRequest request;
 
-        PendingClarification(const AgentPlanDraft& draft_value, const ClarificationRequest& request_value)
-            : draft(draft_value),
-              request(request_value)
+        explicit PendingClarification(const ClarificationRequest& request_value)
+            : request(request_value)
         {
         }
     };

@@ -394,10 +394,6 @@ class Repository {
   +childrenOf()
 }
 
-class PlanDraftFactory {
-  +createRoughingOperationDraft()
-}
-
 class CommandRegistry {
   +browserDefaults()
   +registerCommand(spec)
@@ -408,22 +404,17 @@ CamMainWindow --> CamViewport
 CamMainWindow --> AgentReviewDialog
 CamMainWindow --> HttpAgentDraftService
 CamMainWindow --> Repository
-CamMainWindow --> BrowserConsole
-CamMainWindow --> ActionGateway
-CamMainWindow --> SkillRuntime
-CamMainWindow --> AgentPlanExecutor
-CamMainWindow --> PlanDraftFactory
+CamMainWindow --> SemanticIntentExecutor
 HttpAgentDraftService ..|> AgentDraftService
-HttpAgentDraftService --> AgentPlanDraftJsonCodec
+HttpAgentDraftService --> SemanticPlanDraftJsonCodec
 AgentReviewDialog --> AgentDraftService
-AgentReviewDialog --> AgentPlanDraft
-AgentReviewDialog --> AgentPlanExecutor
+AgentReviewDialog --> SemanticPlanDraft
+AgentReviewDialog --> SemanticIntentExecutor
 AgentPlanExecutor --> SkillRuntime
 SkillRuntime --> ActionGateway
 ActionGateway --> BrowserConsole
 ActionGateway --> CommandRegistry
 BrowserConsole --> Repository
-PlanDraftFactory --> AgentPlanDraft
             </pre>
           </div>
         </div>

@@ -55,12 +55,9 @@ void styleOperationButton(QPushButton* button, const QIcon& icon)
 
 CamMainWindow::CamMainWindow(QWidget* parent)
     : QMainWindow(parent),
-      browser_console_(repository_),
-      gateway_(repository_, browser_console_),
-      skill_runtime_(gateway_),
+      browser_console_(repository_, this),
       human_in_loop_service_(),
-      executor_(skill_runtime_, repository_, human_in_loop_service_),
-      semantic_executor_(repository_, human_in_loop_service_),
+      semantic_executor_(browser_console_, human_in_loop_service_),
       draft_service_(QUrl("http://127.0.0.1:8765/v1/agent/plan")),
       active_draft_service_(&draft_service_),
       browser_tree_(0),
@@ -80,12 +77,9 @@ CamMainWindow::CamMainWindow(QWidget* parent)
 
 CamMainWindow::CamMainWindow(AgentDraftService& draft_service, QWidget* parent)
     : QMainWindow(parent),
-      browser_console_(repository_),
-      gateway_(repository_, browser_console_),
-      skill_runtime_(gateway_),
+      browser_console_(repository_, this),
       human_in_loop_service_(),
-      executor_(skill_runtime_, repository_, human_in_loop_service_),
-      semantic_executor_(repository_, human_in_loop_service_),
+      semantic_executor_(browser_console_, human_in_loop_service_),
       draft_service_(QUrl("http://127.0.0.1:8765/v1/agent/plan")),
       active_draft_service_(&draft_service),
       browser_tree_(0),
@@ -257,31 +251,18 @@ QString CamMainWindow::objectTypeText(ObjectType type) const
     return "Unknown";
 }
 
-AgentPlanDraft CamMainWindow::createDefaultRoughingDraft(const std::string& trace_id, const std::string& target_object_id) const
-{
-    RoughingPlanProposal proposal;
-    proposal.trace_id = trace_id;
-    proposal.target_object_id = target_object_id;
-    proposal.operation_type = "roughing";
-    proposal.tool_id = "tool_010";
-    proposal.stepover = "2.0";
-    proposal.stepdown = "1.0";
-    proposal.tolerance = "0.02";
-    return draft_factory_.createRoughingOperationDraft(proposal, 0);
-}
-
 void CamMainWindow::openAgentCreateOperationDialog()
 {
-    if (selectedObjectType() == ObjectType::Unknown) {
-        showResultInViewport(QString::fromUtf8("请选择对象"), QString::fromUtf8("CAMClaw 需要先选择一个特征、工序或刀轨作为当前上下文"));
-        return;
+    QString target_id;
+    QString display_name = QString::fromUtf8("未指定");
+    if (selectedObjectType() != ObjectType::Unknown) {
+        target_id = selectedObjectId();
+        const CamObject selected_object = repository_.get(toStd(selectedObjectId()));
+        display_name = selected_object.display_name.empty()
+            ? selectedObjectId()
+            : fromStd(selected_object.display_name);
     }
-
-    const CamObject selected_object = repository_.get(toStd(selectedObjectId()));
-    const QString display_name = selected_object.display_name.empty()
-        ? selectedObjectId()
-        : fromStd(selected_object.display_name);
-    AgentReviewDialog dialog(selectedObjectId(), display_name, *active_draft_service_, semantic_executor_, &human_in_loop_service_, this);
+    AgentReviewDialog dialog(target_id, display_name, *active_draft_service_, semantic_executor_, &human_in_loop_service_, this);
     dialog.exec();
     if (dialog.executionSucceeded()) {
         current_operation_id_ = dialog.createdOperationId();
@@ -314,41 +295,24 @@ void CamMainWindow::createDrillingOperationDirectly()
 
 bool CamMainWindow::createOperationDirectly(const QString& operation_type)
 {
-    OperationCatalog catalog = OperationCatalog::defaults();
-    OperationFactory factory(catalog);
-    OperationService service(repository_, factory);
-
-    CreateOperationRequest request;
-    request.operation_type = toStd(operation_type);
+    BrowserOperationCreateItem item;
+    item.operation_type = toStd(operation_type);
+    item.count = 1;
+    std::vector<BrowserOperationCreateItem> items;
+    items.push_back(item);
+    std::string target_object_id;
     if (selectedObjectType() == ObjectType::Feature) {
-        request.target_object_id = toStd(selectedObjectId());
+        target_object_id = toStd(selectedObjectId());
     }
 
-    CamObject operation;
-    std::string error_code;
-    std::string message;
-    if (!service.createOperation(request, operation, error_code, message)) {
-        showResultInViewport(QString::fromUtf8("创建工序失败"), fromStd(error_code + ": " + message));
-        return false;
-    }
-
-    current_operation_id_ = fromStd(operation.object_id);
-    current_toolpath_id_.clear();
-    refreshBrowserTree();
-    viewport_->setOperationPreview(current_operation_id_);
-    return true;
-}
-
-bool CamMainWindow::executeDraftAndRefresh(AgentPlanDraft draft)
-{
-    const AgentPlanExecutionResult result = executor_.execute(draft);
+    const BrowserConsoleResult result = browser_console_.createOperations(items, target_object_id, false);
     if (!result.ok) {
-        showResultInViewport(QString::fromUtf8("执行失败"), fromStd(result.error_code + ": " + result.message));
+        showResultInViewport(QString::fromUtf8("创建工序失败"), fromStd(result.error_code + ": " + result.message));
         return false;
     }
+
     current_operation_id_ = fromStd(result.primary_object_id);
-    refreshBrowserTree();
-    viewport_->setOperationPreview(current_operation_id_);
+    current_toolpath_id_.clear();
     return true;
 }
 
@@ -382,21 +346,15 @@ void CamMainWindow::generateToolpathForCurrentOperation()
         return;
     }
 
-    ConsoleCommandRequest request;
-    request.command_id = "browser.generate_toolpath";
-    request.source = "qt_browser_context_menu";
-    request.trace_id = "trace_qt_toolpath";
-    request.target_object_id = toStd(selectedObjectId());
-
-    const ConsoleCommandResult result = gateway_.dispatch(request);
+    std::vector<std::string> operation_ids;
+    operation_ids.push_back(toStd(selectedObjectId()));
+    const BrowserConsoleResult result = browser_console_.generateToolpaths(operation_ids);
     if (!result.ok) {
         showResultInViewport(QString::fromUtf8("刀轨生成失败"), fromStd(result.error_code + ": " + result.message));
         return;
     }
 
     current_toolpath_id_ = fromStd(result.primary_object_id);
-    refreshBrowserTree();
-    syncVisibleToolpathsToViewport();
 }
 
 void CamMainWindow::regenerateToolpathForCurrentOperation()
@@ -406,10 +364,14 @@ void CamMainWindow::regenerateToolpathForCurrentOperation()
         return;
     }
 
-    ToolPathService service(repository_);
-    service.deleteToolPathForOperation(toStd(selectedObjectId()));
-    current_toolpath_id_.clear();
-    generateToolpathForCurrentOperation();
+    std::vector<std::string> operation_ids;
+    operation_ids.push_back(toStd(selectedObjectId()));
+    const BrowserConsoleResult result = browser_console_.regenerateToolpaths(operation_ids);
+    if (!result.ok) {
+        showResultInViewport(QString::fromUtf8("刀轨重新计算失败"), fromStd(result.error_code + ": " + result.message));
+        return;
+    }
+    current_toolpath_id_ = fromStd(result.primary_object_id);
 }
 
 void CamMainWindow::deleteToolpathForCurrentOperation()
@@ -420,13 +382,13 @@ void CamMainWindow::deleteToolpathForCurrentOperation()
     }
 
     const QString operation_id = selectedObjectId();
-    ToolPathService service(repository_);
-    service.deleteToolPathForOperation(toStd(operation_id));
+    const BrowserConsoleResult result = browser_console_.deleteToolpathForOperation(toStd(operation_id));
+    if (!result.ok) {
+        showResultInViewport(QString::fromUtf8("删除刀轨失败"), fromStd(result.error_code + ": " + result.message));
+        return;
+    }
     current_toolpath_id_.clear();
     current_operation_id_ = operation_id;
-    refreshBrowserTree();
-    viewport_->setOperationPreview(operation_id);
-    syncVisibleToolpathsToViewport();
 }
 
 void CamMainWindow::openCurrentOperationEditor()
@@ -442,19 +404,23 @@ void CamMainWindow::openCurrentOperationEditor()
         return;
     }
 
-    OperationCatalog catalog = OperationCatalog::defaults();
-    OperationFactory factory(catalog);
-    OperationService service(repository_, factory);
     std::map<std::string, std::string> parameters = dialog.editedParameters();
+    std::vector<BrowserParameterUpdate> updates;
     for (std::map<std::string, std::string>::const_iterator it = parameters.begin(); it != parameters.end(); ++it) {
-        std::string error_code;
-        std::string message;
-        service.updateOperationParameter(toStd(operation_id), it->first, it->second, error_code, message);
+        BrowserParameterUpdate update;
+        update.parameter = it->first;
+        update.value = it->second;
+        updates.push_back(update);
+    }
+    std::vector<std::string> operation_ids;
+    operation_ids.push_back(toStd(operation_id));
+    const BrowserConsoleResult result = browser_console_.updateOperations(operation_ids, updates, false);
+    if (!result.ok) {
+        showResultInViewport(QString::fromUtf8("工序保存失败"), fromStd(result.error_code + ": " + result.message));
+        return;
     }
 
     current_operation_id_ = operation_id;
-    refreshBrowserTree();
-    viewport_->setOperationPreview(operation_id);
 }
 
 void CamMainWindow::updateViewportFromSelection()
@@ -482,18 +448,17 @@ void CamMainWindow::handleBrowserItemClicked(QTreeWidgetItem* item, int)
     }
 
     const QString toolpath_id = selectedObjectId();
-    ToolPathService service(repository_);
-    bool visible = false;
-    std::string error_code;
-    std::string message;
-    if (!service.toggleToolPathVisibility(toStd(toolpath_id), visible, error_code, message)) {
-        showResultInViewport(QString::fromUtf8("刀轨显示切换失败"), fromStd(error_code + ": " + message));
+    std::vector<std::string> toolpath_ids;
+    toolpath_ids.push_back(toStd(toolpath_id));
+    const BrowserConsoleResult result = browser_console_.setToolpathVisibility(toolpath_ids, "toggle");
+    if (!result.ok) {
+        showResultInViewport(QString::fromUtf8("刀轨显示切换失败"), fromStd(result.error_code + ": " + result.message));
         return;
     }
 
-    current_toolpath_id_ = visible ? toolpath_id : QString();
-    refreshBrowserTree();
-    syncVisibleToolpathsToViewport();
+    const CamObject toolpath = repository_.get(toStd(toolpath_id));
+    const std::map<std::string, std::string>::const_iterator visible = toolpath.attributes.find("visible");
+    current_toolpath_id_ = visible != toolpath.attributes.end() && visible->second == "true" ? toolpath_id : QString();
 }
 
 QVector<ToolpathViewItem> CamMainWindow::visibleToolpaths() const
@@ -515,6 +480,39 @@ QVector<ToolpathViewItem> CamMainWindow::visibleToolpaths() const
 void CamMainWindow::syncVisibleToolpathsToViewport()
 {
     viewport_->setVisibleToolpaths(visibleToolpaths());
+}
+
+void CamMainWindow::selectObject(const std::string& object_id)
+{
+    if (browser_tree_model_ != 0) {
+        browser_tree_model_->setCurrentObject(fromStd(object_id));
+    }
+}
+
+void CamMainWindow::showOperationPreview(const std::string& operation_id)
+{
+    current_operation_id_ = fromStd(operation_id);
+    current_toolpath_id_.clear();
+    viewport_->setOperationPreview(current_operation_id_);
+}
+
+void CamMainWindow::showToolpathPreview(const std::string& toolpath_id)
+{
+    current_toolpath_id_ = fromStd(toolpath_id);
+    viewport_->setToolpathPreview(current_toolpath_id_);
+}
+
+void CamMainWindow::syncVisibleToolpaths()
+{
+    syncVisibleToolpathsToViewport();
+}
+
+void CamMainWindow::openOperationEditor(const std::string& operation_id)
+{
+    if (browser_tree_model_ != 0) {
+        browser_tree_model_->setCurrentObject(fromStd(operation_id));
+    }
+    openCurrentOperationEditor();
 }
 
 } // namespace camclaw

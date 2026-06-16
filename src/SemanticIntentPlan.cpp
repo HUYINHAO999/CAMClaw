@@ -1,7 +1,6 @@
 #include "camclaw/SemanticIntentPlan.h"
 
 #include <algorithm>
-#include <cstdlib>
 #include <sstream>
 
 namespace camclaw {
@@ -29,8 +28,8 @@ bool findJsonStringValue(const std::string& json, const std::string& key, std::s
     if (colon_pos == std::string::npos) {
         return false;
     }
-    std::string::size_type quote_pos = json.find('"', colon_pos + 1u);
-    if (quote_pos == std::string::npos) {
+    std::string::size_type quote_pos = json.find_first_not_of(" \t\r\n", colon_pos + 1u);
+    if (quote_pos == std::string::npos || json[quote_pos] != '"') {
         return false;
     }
     ++quote_pos;
@@ -294,13 +293,6 @@ bool operationTypeMatchesFilter(const std::string& operation_type, const std::st
     return operation_type == filter;
 }
 
-std::string formatNumber(double value)
-{
-    std::ostringstream stream;
-    stream << value;
-    return stream.str();
-}
-
 } // namespace
 
 SemanticPlanDraft::SemanticPlanDraft(const std::string& trace_id)
@@ -498,12 +490,9 @@ bool SemanticPlanDraftJsonCodec::decodeTarget(const std::string& object_json, Se
     return false;
 }
 
-SemanticIntentExecutor::SemanticIntentExecutor(Repository& repository, HumanInLoopService& human_in_loop_service)
-    : repository_(repository),
-      human_in_loop_service_(human_in_loop_service),
-      feature_recognition_service_(),
-      tool_selection_policy_(),
-      parameter_expression_resolver_(tool_selection_policy_)
+SemanticIntentExecutor::SemanticIntentExecutor(BrowserConsole& browser_console, HumanInLoopService& human_in_loop_service)
+    : browser_console_(browser_console),
+      human_in_loop_service_(human_in_loop_service)
 {
 }
 
@@ -563,38 +552,14 @@ bool SemanticIntentExecutor::executeMachineFeature(
         return false;
     }
 
-    OperationCatalog catalog = OperationCatalog::defaults();
-    OperationFactory factory(catalog);
-    OperationService operation_service(repository_, factory);
-    ToolPathService toolpath_service(repository_);
-
-    std::vector<std::string> created_ids;
-    for (std::size_t index = 0; index < feature_ids.size(); ++index) {
-        const CamObject feature = repository_.get(feature_ids[index]);
-        CreateOperationRequest request;
-        request.target_object_id = feature.object_id;
-        request.operation_type = feature_recognition_service_.recognizeOperationType(feature);
-        CamObject operation;
-        std::string error_code;
-        std::string message;
-        if (!operation_service.createOperation(request, operation, error_code, message)) {
-            result.error_code = error_code;
-            result.message = message;
-            return false;
-        }
-        created_ids.push_back(operation.object_id);
-        if (intent.auto_generate_toolpath) {
-            CamObject toolpath;
-            if (!toolpath_service.generateToolPath(operation.object_id, toolpath, error_code, message)) {
-                result.error_code = error_code;
-                result.message = message;
-                return false;
-            }
-            created_ids.push_back(toolpath.object_id);
-        }
+    const BrowserConsoleResult console_result = browser_console_.machineFeature(feature_ids, intent.auto_generate_toolpath);
+    if (!console_result.ok) {
+        result.error_code = console_result.error_code;
+        result.message = console_result.message;
+        return false;
     }
 
-    appendSuccess(created_ids.empty() ? std::string() : created_ids[0], created_ids, "machine_feature_completed", context, result);
+    appendSuccess(console_result.primary_object_id, console_result.object_ids, "machine_feature_completed", context, result);
     return true;
 }
 
@@ -603,10 +568,6 @@ bool SemanticIntentExecutor::executeCreateOperations(
     IntentExecutionContext& context,
     AgentPlanExecutionResult& result)
 {
-    OperationCatalog catalog = OperationCatalog::defaults();
-    OperationFactory factory(catalog);
-    OperationService operation_service(repository_, factory);
-    std::vector<std::string> created_ids;
     std::string target_object_id;
     if (intent.target.kind != SemanticTargetKind::Unknown) {
         const std::vector<std::string> targets = resolveTargetIds(intent.target, context, result, "feature");
@@ -618,25 +579,21 @@ bool SemanticIntentExecutor::executeCreateOperations(
         }
     }
 
+    std::vector<BrowserOperationCreateItem> items;
     for (std::size_t item_index = 0; item_index < intent.create_items.size(); ++item_index) {
-        const OperationCreateItem& item = intent.create_items[item_index];
-        for (int count = 0; count < item.count; ++count) {
-            CreateOperationRequest request;
-            request.operation_type = item.operation_type;
-            request.target_object_id = target_object_id;
-            CamObject operation;
-            std::string error_code;
-            std::string message;
-            if (!operation_service.createOperation(request, operation, error_code, message)) {
-                result.error_code = error_code;
-                result.message = message;
-                return false;
-            }
-            created_ids.push_back(operation.object_id);
-        }
+        BrowserOperationCreateItem item;
+        item.operation_type = intent.create_items[item_index].operation_type;
+        item.count = intent.create_items[item_index].count;
+        items.push_back(item);
+    }
+    const BrowserConsoleResult console_result = browser_console_.createOperations(items, target_object_id, intent.auto_generate_toolpath);
+    if (!console_result.ok) {
+        result.error_code = console_result.error_code;
+        result.message = console_result.message;
+        return false;
     }
 
-    appendSuccess(created_ids.empty() ? std::string() : created_ids[0], created_ids, "operations_created", context, result);
+    appendSuccess(console_result.primary_object_id, console_result.object_ids, "operations_created", context, result);
     return true;
 }
 
@@ -649,29 +606,22 @@ bool SemanticIntentExecutor::executeEditOperation(
     if (!result.ok && !result.error_code.empty()) {
         return false;
     }
-    OperationCatalog catalog = OperationCatalog::defaults();
-    OperationFactory factory(catalog);
-    OperationService operation_service(repository_, factory);
-
-    for (std::size_t index = 0; index < operation_ids.size(); ++index) {
-        for (std::size_t update_index = 0; update_index < intent.updates.size(); ++update_index) {
-            const CamObject operation = repository_.get(operation_ids[index]);
-            const std::string parameter_value = parameter_expression_resolver_.resolve(operation, intent.updates[update_index]);
-            std::string parameter_name = intent.updates[update_index].parameter;
-            if (parameter_name == "tool") {
-                parameter_name = "tool_id";
-            }
-            std::string error_code;
-            std::string message;
-            if (!operation_service.updateOperationParameter(operation_ids[index], parameter_name, parameter_value, error_code, message)) {
-                result.error_code = error_code;
-                result.message = message;
-                return false;
-            }
-        }
+    std::vector<BrowserParameterUpdate> updates;
+    for (std::size_t index = 0; index < intent.updates.size(); ++index) {
+        BrowserParameterUpdate update;
+        update.parameter = intent.updates[index].parameter;
+        update.value = intent.updates[index].value;
+        update.expression = intent.updates[index].expression;
+        updates.push_back(update);
+    }
+    const BrowserConsoleResult console_result = browser_console_.updateOperations(operation_ids, updates, intent.open_editor);
+    if (!console_result.ok) {
+        result.error_code = console_result.error_code;
+        result.message = console_result.message;
+        return false;
     }
 
-    appendSuccess(operation_ids.empty() ? std::string() : operation_ids[0], operation_ids, "operation_edited", context, result);
+    appendSuccess(console_result.primary_object_id, console_result.object_ids, "operation_edited", context, result);
     return true;
 }
 
@@ -684,21 +634,13 @@ bool SemanticIntentExecutor::executeRegenerateToolpath(
     if (!result.ok && !result.error_code.empty()) {
         return false;
     }
-    ToolPathService toolpath_service(repository_);
-    std::vector<std::string> object_ids;
-    for (std::size_t index = 0; index < operation_ids.size(); ++index) {
-        toolpath_service.deleteToolPathForOperation(operation_ids[index]);
-        CamObject toolpath;
-        std::string error_code;
-        std::string message;
-        if (!toolpath_service.generateToolPath(operation_ids[index], toolpath, error_code, message)) {
-            result.error_code = error_code;
-            result.message = message;
-            return false;
-        }
-        object_ids.push_back(toolpath.object_id);
+    const BrowserConsoleResult console_result = browser_console_.regenerateToolpaths(operation_ids);
+    if (!console_result.ok) {
+        result.error_code = console_result.error_code;
+        result.message = console_result.message;
+        return false;
     }
-    appendSuccess(object_ids.empty() ? std::string() : object_ids[0], object_ids, "toolpath_regenerated", context, result);
+    appendSuccess(console_result.primary_object_id, console_result.object_ids, "toolpath_regenerated", context, result);
     return true;
 }
 
@@ -707,7 +649,6 @@ bool SemanticIntentExecutor::executeSetToolpathVisibility(
     IntentExecutionContext& context,
     AgentPlanExecutionResult& result)
 {
-    ToolPathService toolpath_service(repository_);
     std::vector<std::string> changed_ids;
     for (std::size_t action_index = 0; action_index < intent.visibility_actions.size(); ++action_index) {
         const VisibilityIntentAction& action = intent.visibility_actions[action_index];
@@ -715,24 +656,13 @@ bool SemanticIntentExecutor::executeSetToolpathVisibility(
         if (!result.ok && !result.error_code.empty()) {
             return false;
         }
-        for (std::size_t index = 0; index < toolpath_ids.size(); ++index) {
-            bool visible = false;
-            std::string error_code;
-            std::string message;
-            bool ok = false;
-            if (action.visibility == "toggle") {
-                ok = toolpath_service.toggleToolPathVisibility(toolpath_ids[index], visible, error_code, message);
-            } else {
-                visible = action.visibility == "show";
-                ok = toolpath_service.setToolPathVisibility(toolpath_ids[index], visible, error_code, message);
-            }
-            if (!ok) {
-                result.error_code = error_code;
-                result.message = message;
-                return false;
-            }
-            changed_ids.push_back(toolpath_ids[index]);
+        const BrowserConsoleResult console_result = browser_console_.setToolpathVisibility(toolpath_ids, action.visibility);
+        if (!console_result.ok) {
+            result.error_code = console_result.error_code;
+            result.message = console_result.message;
+            return false;
         }
+        changed_ids.insert(changed_ids.end(), console_result.object_ids.begin(), console_result.object_ids.end());
     }
     appendSuccess(changed_ids.empty() ? std::string() : changed_ids[0], changed_ids, "toolpath_visibility_updated", context, result);
     return true;
@@ -748,7 +678,7 @@ std::vector<std::string> SemanticIntentExecutor::resolveTargetIds(
     std::vector<std::string> ids;
     if (target.kind == SemanticTargetKind::Objects) {
         for (std::size_t index = 0; index < target.object_ids.size(); ++index) {
-            const CamObject object = repository_.get(target.object_ids[index]);
+            const CamObject object = browser_console_.repository().get(target.object_ids[index]);
             if (!objectTypeMatches(object.object_type, expected_object_type)) {
                 result.error_code = "invalid_target_type";
                 result.message = "Semantic target object type does not match intent.";
@@ -766,7 +696,7 @@ std::vector<std::string> SemanticIntentExecutor::resolveTargetIds(
             return std::vector<std::string>();
         }
         for (std::size_t index = 0; index < context.previous_primary_object_ids.size(); ++index) {
-            const CamObject object = repository_.get(context.previous_primary_object_ids[index]);
+            const CamObject object = browser_console_.repository().get(context.previous_primary_object_ids[index]);
             if (objectTypeMatches(object.object_type, expected_object_type)) {
                 ids.push_back(object.object_id);
             }
@@ -784,7 +714,7 @@ std::vector<std::string> SemanticIntentExecutor::resolveTargetIds(
             const ObjectType type = expected_object_type == "operation" ? ObjectType::Operation
                 : expected_object_type == "toolpath" ? ObjectType::Toolpath
                 : ObjectType::Feature;
-            const std::vector<CamObject> objects = repository_.objectsByType(type);
+            const std::vector<CamObject> objects = browser_console_.repository().objectsByType(type);
             for (std::size_t index = 0; index < objects.size(); ++index) {
                 ids.push_back(objects[index].object_id);
             }
@@ -793,7 +723,7 @@ std::vector<std::string> SemanticIntentExecutor::resolveTargetIds(
         }
         const std::map<std::string, std::string>::const_iterator operation_type_filter = target.filters.find("operation_type");
         if (operation_type_filter != target.filters.end()) {
-            const std::vector<CamObject> operations = repository_.objectsByType(ObjectType::Operation);
+            const std::vector<CamObject> operations = browser_console_.repository().objectsByType(ObjectType::Operation);
             for (std::size_t index = 0; index < operations.size(); ++index) {
                 const std::map<std::string, std::string>::const_iterator operation_type = operations[index].attributes.find("operation_type");
                 if (operation_type == operations[index].attributes.end()
@@ -807,7 +737,7 @@ std::vector<std::string> SemanticIntentExecutor::resolveTargetIds(
                     if (toolpath_id != operations[index].attributes.end()) {
                         ids.push_back(toolpath_id->second);
                     } else {
-                        const std::vector<CamObject> toolpaths = repository_.objectsByType(ObjectType::Toolpath);
+                        const std::vector<CamObject> toolpaths = browser_console_.repository().objectsByType(ObjectType::Toolpath);
                         for (std::size_t toolpath_index = 0; toolpath_index < toolpaths.size(); ++toolpath_index) {
                             if (toolpaths[toolpath_index].parent_object_id == operations[index].object_id) {
                                 ids.push_back(toolpaths[toolpath_index].object_id);
@@ -828,68 +758,6 @@ std::vector<std::string> SemanticIntentExecutor::resolveTargetIds(
     result.error_code = "missing_target";
     result.message = "Semantic intent target is missing.";
     return ids;
-}
-
-std::string FeatureRecognitionService::recognizeOperationType(const CamObject& feature) const
-{
-    const std::string text = feature.object_id + " " + feature.display_name;
-    if (text.find("holes") != std::string::npos || text.find("孔") != std::string::npos) {
-        return "drilling";
-    }
-    if (text.find("plane") != std::string::npos || text.find("平面") != std::string::npos) {
-        return "finishing";
-    }
-    return "pocket";
-}
-
-std::string ToolSelectionPolicy::resolveRelativeToolId(const CamObject& operation, const std::string& expression) const
-{
-    const std::map<std::string, std::string>::const_iterator current = operation.attributes.find("tool_id");
-    if (expression == "larger" || expression == "大一些") {
-        if (current != operation.attributes.end() && current->second == "tool_010") {
-            return "tool_016";
-        }
-        if (current != operation.attributes.end()) {
-            return current->second;
-        }
-    }
-    return current == operation.attributes.end() ? std::string() : current->second;
-}
-
-ParameterExpressionResolver::ParameterExpressionResolver(const ToolSelectionPolicy& tool_selection_policy)
-    : tool_selection_policy_(tool_selection_policy)
-{
-}
-
-std::string ParameterExpressionResolver::resolve(const CamObject& operation, const ParameterUpdateIntent& update) const
-{
-    if (!update.value.empty()) {
-        return update.value;
-    }
-    if (update.parameter == "tool" || update.parameter == "tool_id") {
-        return tool_selection_policy_.resolveRelativeToolId(operation, update.expression);
-    }
-    return resolveRelativeNumber(operation, update.parameter, update.expression);
-}
-
-std::string ParameterExpressionResolver::resolveRelativeNumber(
-    const CamObject& operation,
-    const std::string& parameter_name,
-    const std::string& expression) const
-{
-    if (expression != "smaller" && expression != "更小" && expression != "小一些") {
-        return expression;
-    }
-    const std::map<std::string, std::string>::const_iterator current = operation.attributes.find(parameter_name);
-    if (current == operation.attributes.end()) {
-        return expression;
-    }
-    char* end = 0;
-    const double parsed = std::strtod(current->second.c_str(), &end);
-    if (end == current->second.c_str() || *end != '\0' || parsed <= 0.0) {
-        return expression;
-    }
-    return formatNumber(parsed * 0.5);
 }
 
 void SemanticIntentExecutor::appendSuccess(

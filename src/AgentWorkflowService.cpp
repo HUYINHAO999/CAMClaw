@@ -1,5 +1,4 @@
 #include "camclaw/AgentWorkflowService.h"
-#include "camclaw/SkillRuntime.h"
 
 #include <sstream>
 
@@ -352,48 +351,54 @@ WorkflowResult AgentWorkflowService::submitRoughingAndToolpath(const RoughingWor
             return result;
         }
 
-        SkillDefinition skill;
-        skill.skill_id = "browser.create_roughing_operation_and_generate_toolpath";
+        OperationCatalog catalog = OperationCatalog::defaults();
+        OperationFactory factory(catalog);
+        OperationService operation_service(repository_, factory);
+        ToolPathService toolpath_service(repository_);
+        CreateOperationRequest create_request;
+        create_request.target_object_id = request.target_object_id;
+        create_request.operation_type = request.operation_type.empty() ? "roughing" : request.operation_type;
+        if (!request.tool_id.empty()) {
+            create_request.parameters["tool_id"] = request.tool_id;
+        }
+        if (!request.stepover.empty()) {
+            create_request.parameters["stepover"] = request.stepover;
+        }
+        if (!request.stepdown.empty()) {
+            create_request.parameters["stepdown"] = request.stepdown;
+        }
+        if (!request.tolerance.empty()) {
+            create_request.parameters["tolerance"] = request.tolerance;
+        }
 
-        SkillCommandStep create_operation;
-        create_operation.command_id = "browser.create_roughing_operation";
-        create_operation.target_object_id_expression = "$input.target_object_id";
-        create_operation.args["operation_type"] = request.operation_type;
-        create_operation.args["tool_id"] = request.tool_id;
-        create_operation.args["stepover"] = request.stepover;
-        create_operation.args["stepdown"] = request.stepdown;
-        create_operation.args["tolerance"] = request.tolerance;
-        skill.steps.push_back(create_operation);
-
-        SkillCommandStep generate_toolpath;
-        generate_toolpath.command_id = "browser.generate_toolpath";
-        generate_toolpath.target_object_id_expression = "$step0.primary_object_id";
-        skill.steps.push_back(generate_toolpath);
-
-        SkillExecutionInput skill_input;
-        skill_input.trace_id = request.trace_id;
-        skill_input.target_object_id = request.target_object_id;
-
-        BrowserConsole browser_console(repository_);
-        ActionGateway gateway(repository_, browser_console);
-        SkillRuntime runtime(gateway);
-        const SkillExecutionResult skill_result = runtime.execute(skill, skill_input);
-
+        CamObject operation;
+        std::string error_code;
+        std::string message;
         result.trace_events.push_back("gateway_validated");
         result.trace_events.push_back("adapter_dispatched");
-        result.trace_events.insert(result.trace_events.end(), skill_result.trace_events.begin(), skill_result.trace_events.end());
-
-        if (!skill_result.ok) {
+        if (!operation_service.createOperation(create_request, operation, error_code, message)) {
             result.status = WorkflowStatus::Failed;
-            result.error_code = skill_result.error_code;
-            result.message = skill_result.message;
-            result.primary_object_id = skill_result.primary_object_id;
+            result.error_code = error_code;
+            result.message = message;
+            return result;
+        }
+
+        CamObject toolpath;
+        if (!toolpath_service.generateToolPath(operation.object_id, toolpath, error_code, message)) {
+            result.status = WorkflowStatus::Failed;
+            result.error_code = error_code;
+            result.message = message;
+            result.primary_object_id = operation.object_id;
+            result.created_object_ids.push_back(operation.object_id);
             return result;
         }
 
         result.status = WorkflowStatus::Completed;
-        result.primary_object_id = skill_result.primary_object_id;
-        result.created_object_ids = skill_result.object_ids;
+        result.primary_object_id = toolpath.object_id;
+        result.created_object_ids.push_back(operation.object_id);
+        result.created_object_ids.push_back(toolpath.object_id);
+        result.trace_events.push_back("operation_created");
+        result.trace_events.push_back("toolpath_generated");
         return result;
     }
 

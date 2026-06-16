@@ -21,6 +21,7 @@ public:
     explicit CamViewport(QWidget* parent = 0);
 
     QString statusText() const;
+    QStringList visibleToolpathIds() const;
     void setSelection(ObjectType object_type, const QString& object_id);
     void setOperationPreview(const QString& operation_id);
     void setToolpathPreview(const QString& toolpath_id);

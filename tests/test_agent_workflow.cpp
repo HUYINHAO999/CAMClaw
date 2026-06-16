@@ -68,15 +68,14 @@ static int explicit_target_creates_operation_and_toolpath()
     const camclaw::WorkflowResult result = service.submitRoughingAndToolpath(request);
 
     REQUIRE_EQ(camclaw::WorkflowStatus::Completed, result.status);
-    REQUIRE_EQ(std::string("op_roughing_feature_001"), result.primary_object_id);
+    REQUIRE_EQ(std::string("toolpath_op_roughing_feature_001"), result.primary_object_id);
     REQUIRE_EQ(2u, result.created_object_ids.size());
     REQUIRE_EQ(std::string("op_roughing_feature_001"), result.created_object_ids[0]);
     REQUIRE_EQ(std::string("toolpath_op_roughing_feature_001"), result.created_object_ids[1]);
     REQUIRE_TRUE(result.trace_events.size() >= 2);
     REQUIRE_TRUE(contains_event(result.trace_events, "gateway_validated"));
     REQUIRE_TRUE(contains_event(result.trace_events, "adapter_dispatched"));
-    REQUIRE_TRUE(contains_event(result.trace_events, "browser_console_dispatched"));
-    REQUIRE_TRUE(contains_event(result.trace_events, "roughing_operation_created"));
+    REQUIRE_TRUE(contains_event(result.trace_events, "operation_created"));
     REQUIRE_TRUE(contains_event(result.trace_events, "toolpath_generated"));
     REQUIRE_TRUE(repository.exists("op_roughing_feature_001"));
     REQUIRE_TRUE(repository.exists("toolpath_op_roughing_feature_001"));
@@ -114,7 +113,7 @@ static int non_feature_target_is_rejected_before_execution()
     return EXIT_SUCCESS;
 }
 
-static int explicit_target_with_missing_tool_stops_before_execution()
+static int explicit_target_without_tool_uses_catalog_defaults()
 {
     camclaw::Repository repository;
     repository.save(camclaw::CamObject("feature_001", camclaw::ObjectType::Feature, "型腔 A"));
@@ -131,12 +130,12 @@ static int explicit_target_with_missing_tool_stops_before_execution()
 
     const camclaw::WorkflowResult result = service.submitRoughingAndToolpath(request);
 
-    REQUIRE_EQ(camclaw::WorkflowStatus::Failed, result.status);
-    REQUIRE_EQ(std::string("missing_argument"), result.error_code);
-    REQUIRE_EQ(std::string("feature_001"), result.primary_object_id);
-    REQUIRE_TRUE(result.created_object_ids.empty());
-    REQUIRE_TRUE(!repository.exists("op_roughing_feature_001"));
-    REQUIRE_TRUE(contains_event(result.trace_events, "gateway_rejected"));
+    REQUIRE_EQ(camclaw::WorkflowStatus::Completed, result.status);
+    REQUIRE_EQ(std::string("toolpath_op_roughing_feature_001"), result.primary_object_id);
+    REQUIRE_EQ(2u, result.created_object_ids.size());
+    REQUIRE_TRUE(repository.exists("op_roughing_feature_001"));
+    REQUIRE_TRUE(repository.exists("toolpath_op_roughing_feature_001"));
+    REQUIRE_EQ(std::string("tool_010"), repository.get("op_roughing_feature_001").attributes["tool_id"]);
 
     return EXIT_SUCCESS;
 }
@@ -211,7 +210,7 @@ int main()
         return status;
     }
 
-    status = explicit_target_with_missing_tool_stops_before_execution();
+    status = explicit_target_without_tool_uses_catalog_defaults();
     if (status != EXIT_SUCCESS) {
         return status;
     }

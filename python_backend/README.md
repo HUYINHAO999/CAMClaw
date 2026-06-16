@@ -1,8 +1,8 @@
 # CAMClaw Agent Python Backend
 
-This backend owns LLM calls and natural-language planning.
+This backend owns LLM calls and natural-language semantic parsing.
 
-The C++ core should not call the model directly. It should receive reviewed, structured artifacts such as `AgentPlanDraft` and execute them through Skill, Gateway, Adapter, Console, and Repository.
+The C++ core should not call the model directly. It receives a Pydantic-validated `SemanticIntentPlan`. Qt executes the reviewed plan through `SemanticIntentExecutor`, which sequences intents and calls `BrowserConsole`; `BrowserConsole` calls CAM services and refreshes Browser tree / viewport state.
 
 ## Environment
 

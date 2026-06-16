@@ -1,11 +1,10 @@
 #ifndef CAMCLAW_QT_CAM_MAIN_WINDOW_H
 #define CAMCLAW_QT_CAM_MAIN_WINDOW_H
 
-#include "camclaw/AgentPlanExecutor.h"
+#include "camclaw/AgentWorkflowService.h"
+#include "camclaw/BrowserConsole.h"
 #include "camclaw/HumanInLoopService.h"
-#include "camclaw/PlanDraftFactory.h"
 #include "camclaw/SemanticIntentPlan.h"
-#include "camclaw/SkillRuntime.h"
 #include "camclaw/qt/AgentDraftService.h"
 #include "camclaw/qt/BrowserTree.h"
 #include "camclaw/qt/CamViewport.h"
@@ -16,7 +15,7 @@
 
 namespace camclaw {
 
-class CamMainWindow : public QMainWindow {
+class CamMainWindow : public QMainWindow, public BrowserConsoleUi {
     Q_OBJECT
 
 public:
@@ -48,25 +47,24 @@ private slots:
 private:
     void buildUi();
     void seedRepository();
-    void refreshBrowserTree();
     bool createOperationDirectly(const QString& operation_type);
     QString selectedObjectId() const;
     ObjectType selectedObjectType() const;
     QString objectTypeText(ObjectType type) const;
-    AgentPlanDraft createDefaultRoughingDraft(const std::string& trace_id, const std::string& target_object_id) const;
-    bool executeDraftAndRefresh(AgentPlanDraft draft);
     void showResultInViewport(const QString& title, const QString& detail);
     void syncVisibleToolpathsToViewport();
     QVector<ToolpathViewItem> visibleToolpaths() const;
+    void refreshBrowserTree();
+    void selectObject(const std::string& object_id);
+    void showOperationPreview(const std::string& operation_id);
+    void showToolpathPreview(const std::string& toolpath_id);
+    void syncVisibleToolpaths();
+    void openOperationEditor(const std::string& operation_id);
 
     Repository repository_;
     BrowserConsole browser_console_;
-    ActionGateway gateway_;
-    SkillRuntime skill_runtime_;
     HumanInLoopService human_in_loop_service_;
-    AgentPlanExecutor executor_;
     SemanticIntentExecutor semantic_executor_;
-    PlanDraftFactory draft_factory_;
     HttpAgentDraftService draft_service_;
     AgentDraftService* active_draft_service_;
 

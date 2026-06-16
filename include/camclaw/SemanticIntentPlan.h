@@ -1,8 +1,8 @@
 #ifndef CAMCLAW_SEMANTIC_INTENT_PLAN_H
 #define CAMCLAW_SEMANTIC_INTENT_PLAN_H
 
-#include "camclaw/AgentPlanExecutor.h"
-#include "camclaw/AgentWorkflowService.h"
+#include "camclaw/AgentPlanExecutionResult.h"
+#include "camclaw/BrowserConsole.h"
 
 #include <map>
 #include <string>
@@ -130,34 +130,9 @@ private:
     bool decodeTarget(const std::string& object_json, SemanticTarget& target, std::string& message) const;
 };
 
-class FeatureRecognitionService {
-public:
-    std::string recognizeOperationType(const CamObject& feature) const;
-};
-
-class ToolSelectionPolicy {
-public:
-    std::string resolveRelativeToolId(const CamObject& operation, const std::string& expression) const;
-};
-
-class ParameterExpressionResolver {
-public:
-    explicit ParameterExpressionResolver(const ToolSelectionPolicy& tool_selection_policy);
-
-    std::string resolve(const CamObject& operation, const ParameterUpdateIntent& update) const;
-
-private:
-    std::string resolveRelativeNumber(
-        const CamObject& operation,
-        const std::string& parameter_name,
-        const std::string& expression) const;
-
-    const ToolSelectionPolicy& tool_selection_policy_;
-};
-
 class SemanticIntentExecutor {
 public:
-    SemanticIntentExecutor(Repository& repository, HumanInLoopService& human_in_loop_service);
+    SemanticIntentExecutor(BrowserConsole& browser_console, HumanInLoopService& human_in_loop_service);
 
     AgentPlanExecutionResult execute(const SemanticPlanDraft& draft);
 
@@ -202,11 +177,8 @@ private:
         IntentExecutionContext& context,
         AgentPlanExecutionResult& result) const;
 
-    Repository& repository_;
+    BrowserConsole& browser_console_;
     HumanInLoopService& human_in_loop_service_;
-    FeatureRecognitionService feature_recognition_service_;
-    ToolSelectionPolicy tool_selection_policy_;
-    ParameterExpressionResolver parameter_expression_resolver_;
 };
 
 } // namespace camclaw

@@ -90,8 +90,9 @@ static int semantic_executor_hides_and_shows_toolpaths_by_query()
     draft.addIntent(intent);
     draft.confirm();
 
+    camclaw::BrowserConsole browser_console(repository);
     camclaw::HumanInLoopService human_in_loop;
-    camclaw::SemanticIntentExecutor executor(repository, human_in_loop);
+    camclaw::SemanticIntentExecutor executor(browser_console, human_in_loop);
     const camclaw::AgentPlanExecutionResult result = executor.execute(draft);
 
     REQUIRE_TRUE(result.ok);
@@ -136,13 +137,75 @@ static int semantic_executor_edits_operation_and_regenerates_ref_toolpath()
     draft.addIntent(regenerate);
     draft.confirm();
 
+    camclaw::BrowserConsole browser_console(repository);
     camclaw::HumanInLoopService human_in_loop;
-    camclaw::SemanticIntentExecutor executor(repository, human_in_loop);
+    camclaw::SemanticIntentExecutor executor(browser_console, human_in_loop);
     const camclaw::AgentPlanExecutionResult result = executor.execute(draft);
 
     REQUIRE_TRUE(result.ok);
     REQUIRE_EQ(std::string("tool_016"), repository.get("op_pocket_001").attributes["tool_id"]);
     REQUIRE_TRUE(repository.exists("toolpath_op_pocket_001"));
+
+    return EXIT_SUCCESS;
+}
+
+static int semantic_codec_preserves_null_value_and_expression_update()
+{
+    const std::string json =
+        "{"
+        "\"schema_version\":\"1\","
+        "\"trace_id\":\"trace_semantic_expression\","
+        "\"status\":\"pending_review\","
+        "\"intents\":[{"
+        "\"id\":\"i1\","
+        "\"intent\":\"edit_operation\","
+        "\"target\":{\"kind\":\"objects\",\"object_ids\":[\"op_pocket\"]},"
+        "\"updates\":[{\"parameter\":\"tool_id\",\"value\":null,\"expression\":\"larger_available_tool\"}],"
+        "\"open_editor\":true"
+        "}]"
+        "}";
+
+    camclaw::SemanticPlanDraftJsonCodec codec;
+    const camclaw::SemanticPlanDraftDecodeResult result = codec.decodeBackendDraft(json);
+
+    REQUIRE_TRUE(result.ok);
+    REQUIRE_EQ(1u, result.draft.intentCount());
+    REQUIRE_EQ(1u, result.draft.intentAt(0).updates.size());
+    REQUIRE_EQ(std::string("tool_id"), result.draft.intentAt(0).updates[0].parameter);
+    REQUIRE_EQ(std::string(""), result.draft.intentAt(0).updates[0].value);
+    REQUIRE_EQ(std::string("larger_available_tool"), result.draft.intentAt(0).updates[0].expression);
+
+    return EXIT_SUCCESS;
+}
+
+static int semantic_executor_resolves_larger_available_tool_expression()
+{
+    camclaw::Repository repository;
+    camclaw::CamObject operation("op_pocket_001", camclaw::ObjectType::Operation, "型腔铣");
+    operation.attributes["operation_type"] = "pocket";
+    operation.attributes["tool_id"] = "tool_010";
+    repository.save(operation);
+
+    camclaw::SemanticPlanDraft draft("trace_semantic_larger_tool");
+    camclaw::SemanticIntent edit;
+    edit.id = "i1";
+    edit.kind = camclaw::SemanticIntentKind::EditOperation;
+    edit.target.kind = camclaw::SemanticTargetKind::Objects;
+    edit.target.object_ids.push_back("op_pocket_001");
+    camclaw::ParameterUpdateIntent update;
+    update.parameter = "tool_id";
+    update.expression = "larger_available_tool";
+    edit.updates.push_back(update);
+    draft.addIntent(edit);
+    draft.confirm();
+
+    camclaw::BrowserConsole browser_console(repository);
+    camclaw::HumanInLoopService human_in_loop;
+    camclaw::SemanticIntentExecutor executor(browser_console, human_in_loop);
+    const camclaw::AgentPlanExecutionResult result = executor.execute(draft);
+
+    REQUIRE_TRUE(result.ok);
+    REQUIRE_EQ(std::string("tool_016"), repository.get("op_pocket_001").attributes["tool_id"]);
 
     return EXIT_SUCCESS;
 }
@@ -158,6 +221,14 @@ int main()
         return status;
     }
     status = semantic_executor_edits_operation_and_regenerates_ref_toolpath();
+    if (status != EXIT_SUCCESS) {
+        return status;
+    }
+    status = semantic_codec_preserves_null_value_and_expression_update();
+    if (status != EXIT_SUCCESS) {
+        return status;
+    }
+    status = semantic_executor_resolves_larger_available_tool_expression();
     if (status != EXIT_SUCCESS) {
         return status;
     }

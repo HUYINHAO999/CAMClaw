@@ -5,7 +5,7 @@
 namespace camclaw {
 
 ClarificationRequest HumanInLoopService::createRequest(
-    const AgentPlanDraft& draft,
+    const std::string& trace_id,
     std::size_t blocked_action_index,
     const std::string& reason,
     const std::string& subject_kind,
@@ -15,8 +15,8 @@ ClarificationRequest HumanInLoopService::createRequest(
     const ResponseSchema& response_schema)
 {
     ClarificationRequest request;
-    request.clarification_id = nextClarificationId(draft.traceId());
-    request.trace_id = draft.traceId();
+    request.clarification_id = nextClarificationId(trace_id);
+    request.trace_id = trace_id;
     request.reason = reason;
     request.subject_kind = subject_kind;
     request.question = question;
@@ -25,7 +25,7 @@ ClarificationRequest HumanInLoopService::createRequest(
     request.response_schema = response_schema;
     request.blocked_action_index = blocked_action_index;
 
-    pending_.insert(std::make_pair(request.clarification_id, PendingClarification(draft, request)));
+    pending_.insert(std::make_pair(request.clarification_id, PendingClarification(request)));
     return request;
 }
 
@@ -46,34 +46,9 @@ ClarificationResumeResult HumanInLoopService::submitResponse(const Clarification
         return result;
     }
 
-    AgentPlanDraft draft = found->second.draft;
-    const std::string target_field = found->second.request.response_schema.target_field.empty()
-        ? std::string("target_object_id")
-        : found->second.request.response_schema.target_field;
-    const DraftEditResult edit_result = draft.setStepInput(
-        found->second.request.blocked_action_index,
-        target_field,
-        selected_id);
-    if (edit_result.status != DraftEditStatus::Edited) {
-        result.error_code = "resume_failed";
-        result.message = edit_result.message;
-        return result;
-    }
-    if (target_field == "target_object_id") {
-        const DraftEditResult scope_result = draft.setStepInput(
-            found->second.request.blocked_action_index,
-            "scope",
-            "selected");
-        if (scope_result.status != DraftEditStatus::Edited) {
-            result.error_code = "resume_failed";
-            result.message = scope_result.message;
-            return result;
-        }
-    }
-
     pending_.erase(found);
     result.ok = true;
-    result.resumed_draft = draft;
+    result.selected_ids.push_back(selected_id);
     return result;
 }
 

@@ -70,6 +70,15 @@ QString CamViewport::statusText() const
     return text;
 }
 
+QStringList CamViewport::visibleToolpathIds() const
+{
+    QStringList ids;
+    for (int index = 0; index < visible_toolpaths_.size(); ++index) {
+        ids.push_back(visible_toolpaths_[index].toolpath_id);
+    }
+    return ids;
+}
+
 void CamViewport::setSelection(ObjectType object_type, const QString& object_id)
 {
     selected_type_ = object_type;
