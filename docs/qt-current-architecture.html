@@ -1,0 +1,701 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CAMClaw Qt 当前架构快照</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --ink: #17202a;
+      --muted: #5f6b7a;
+      --line: #d8dee7;
+      --accent: #0b6bcb;
+      --accent-soft: #e8f2ff;
+      --warn: #9d5200;
+      --warn-bg: #fff3df;
+      --code-bg: #f0f3f7;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-width: 1180px;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.6 "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 280px minmax(900px, 1fr);
+      min-height: 100vh;
+    }
+
+    aside {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 28px 22px;
+      border-right: 1px solid var(--line);
+      background: var(--panel);
+      overflow: auto;
+    }
+
+    main {
+      padding: 34px 42px 56px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin: 0;
+      line-height: 1.25;
+    }
+
+    h1 {
+      font-size: 28px;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin-top: 36px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+      font-size: 22px;
+    }
+
+    h3 {
+      margin-top: 22px;
+      font-size: 17px;
+    }
+
+    p {
+      margin: 10px 0 0;
+      color: var(--muted);
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    nav {
+      margin-top: 22px;
+      display: grid;
+      gap: 6px;
+    }
+
+    nav a {
+      display: block;
+      padding: 8px 10px;
+      border-radius: 6px;
+      color: var(--ink);
+    }
+
+    nav a:hover {
+      background: var(--accent-soft);
+      text-decoration: none;
+    }
+
+    .tag {
+      display: inline-block;
+      margin-top: 18px;
+      padding: 4px 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      background: #fafbfc;
+    }
+
+    .section {
+      max-width: 1480px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 20px;
+    }
+
+    .note,
+    .issue,
+    .target {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 16px 18px;
+    }
+
+    .issue {
+      border-color: #efc46d;
+      background: var(--warn-bg);
+    }
+
+    .issue strong {
+      color: var(--warn);
+    }
+
+    .target {
+      border-color: #a6d2b4;
+      background: #eef9f1;
+    }
+
+    ul,
+    ol {
+      margin: 10px 0 0;
+      padding-left: 22px;
+    }
+
+    li + li {
+      margin-top: 6px;
+    }
+
+    code {
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: var(--code-bg);
+      color: #243447;
+      font-family: Consolas, "Cascadia Mono", monospace;
+      font-size: 0.93em;
+    }
+
+    .diagram-shell {
+      margin-top: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      overflow: auto;
+    }
+
+    .diagram-toolbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      background: #fafbfc;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .diagram-canvas {
+      min-width: 1080px;
+      padding: 26px 28px;
+    }
+
+    .diagram-wide .diagram-canvas {
+      min-width: 1500px;
+    }
+
+    .mermaid {
+      text-align: center;
+    }
+
+    .callout {
+      margin-top: 16px;
+      padding: 14px 16px;
+      border-left: 4px solid var(--accent);
+      background: var(--accent-soft);
+      color: #17324d;
+    }
+
+    .callout p {
+      color: #17324d;
+      margin: 0;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .legend span {
+      padding: 4px 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel);
+    }
+
+    @media print {
+      body {
+        min-width: 0;
+        background: #fff;
+      }
+
+      .layout {
+        display: block;
+      }
+
+      aside {
+        position: static;
+        height: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      main {
+        padding: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <h1>Qt 当前架构快照</h1>
+      <p>这是当前代码状态的阅读页面，不是目标架构承诺。</p>
+      <span class="tag">Snapshot: 2026-06-15</span>
+      <nav aria-label="页面目录">
+        <a href="#overview">总览</a>
+        <a href="#class-diagram">当前类图</a>
+        <a href="#manual-flow">人工创建工序链路</a>
+        <a href="#agent-flow">Agent 创建工序链路</a>
+        <a href="#issues">当前问题</a>
+        <a href="#prompt-cases">Prompt 驱动案例池</a>
+        <a href="#target">下一步目标拆分</a>
+      </nav>
+    </aside>
+
+    <main>
+      <section id="overview" class="section">
+        <h2>总览</h2>
+        <p>
+          当前 Qt 迁移已经具备主窗口、绘图区、树、Agent 审核弹窗、后端草案请求，以及一条从
+          <code>SkillRuntime</code> 到 <code>ActionGateway</code> 再到 <code>BrowserConsole</code>
+          的命令执行链路。但普通 CAM 的建模还很薄，且工序/刀轨业务仍被放在了树控制台里。
+        </p>
+
+        <div class="summary-grid">
+          <div class="note">
+            <h3>Qt UI 层</h3>
+            <p><code>CamMainWindow</code> 聚合窗口、当前这一棵树、绘图区、Agent 弹窗入口，以及当前执行依赖。</p>
+          </div>
+          <div class="note">
+            <h3>执行层</h3>
+            <p><code>ActionGateway</code> 目前只路由到一个 <code>BrowserConsole</code>，业务服务接口还没有拆出来。</p>
+          </div>
+          <div class="issue">
+            <h3>关键偏差</h3>
+            <p><strong><code>BrowserConsole</code> 现在直接承担了创建工序/生成刀轨业务。</strong> 这和“UI 交互入口”定位不一致。</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="class-diagram" class="section">
+        <h2>当前类图</h2>
+        <p>这张图按当前代码依赖画出。类图默认横向展开，可以用浏览器缩放或横向滚动查看。</p>
+        <div class="legend">
+          <span>Qt UI</span>
+          <span>Agent Draft</span>
+          <span>Command Runtime</span>
+          <span>Repository</span>
+        </div>
+
+        <div class="diagram-shell diagram-wide">
+          <div class="diagram-toolbar">
+            <span>Mermaid classDiagram</span>
+            <span>提示：Ctrl + 鼠标滚轮缩放；Shift + 鼠标滚轮横向移动</span>
+          </div>
+          <div class="diagram-canvas">
+            <pre class="mermaid">
+classDiagram
+direction LR
+
+class CamMainWindow {
+  +openAgentCreateOperationDialog()
+  +createRoughingOperationDirectly()
+  +generateToolpathForCurrentOperation()
+  -seedRepository()
+  -refreshBrowserTree()
+  -executeDraftAndRefresh()
+}
+
+class CamViewport {
+  +setModelState()
+  +setOperationPreview()
+  +setToolpathPreview()
+}
+
+class AgentReviewDialog {
+  +generateDraft()
+  +confirmDraft()
+  +regenerateDraft()
+  -requestDraftFromBackend()
+  -renderDraft()
+}
+
+class AgentDraftService {
+  &lt;&lt;interface&gt;&gt;
+  +createDraft(request)
+}
+
+class HttpAgentDraftService {
+  +createDraft(request)
+  -quoteJson(value)
+}
+
+class AgentPlanDraft {
+  +traceId()
+  +steps()
+  +setStatus(status)
+}
+
+class AgentPlanDraftJsonCodec {
+  +decode(json)
+  +encode(draft)
+}
+
+class AgentPlanExecutor {
+  +execute(draft)
+}
+
+class SkillRuntime {
+  +execute(definition, input)
+  -resolveTargetObjectId()
+}
+
+class ActionGateway {
+  +dispatch(request)
+  +registryMatchesConsole()
+  -commandHasRequiredArguments()
+}
+
+class BrowserConsole {
+  +execute(request)
+  +supportedCommands()
+  -createRoughingOperation(request)
+  -generateToolpath(request)
+}
+
+class Repository {
+  +saveObject()
+  +objectById()
+  +childrenOf()
+}
+
+class PlanDraftFactory {
+  +createRoughingOperationDraft()
+}
+
+class CommandRegistry {
+  +browserDefaults()
+  +registerCommand(spec)
+  +find(commandId, spec)
+}
+
+CamMainWindow --> CamViewport
+CamMainWindow --> AgentReviewDialog
+CamMainWindow --> HttpAgentDraftService
+CamMainWindow --> Repository
+CamMainWindow --> BrowserConsole
+CamMainWindow --> ActionGateway
+CamMainWindow --> SkillRuntime
+CamMainWindow --> AgentPlanExecutor
+CamMainWindow --> PlanDraftFactory
+HttpAgentDraftService ..|> AgentDraftService
+HttpAgentDraftService --> AgentPlanDraftJsonCodec
+AgentReviewDialog --> AgentDraftService
+AgentReviewDialog --> AgentPlanDraft
+AgentReviewDialog --> AgentPlanExecutor
+AgentPlanExecutor --> SkillRuntime
+SkillRuntime --> ActionGateway
+ActionGateway --> BrowserConsole
+ActionGateway --> CommandRegistry
+BrowserConsole --> Repository
+PlanDraftFactory --> AgentPlanDraft
+            </pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="manual-flow" class="section">
+        <h2>人工创建工序链路</h2>
+        <p>
+          当前人工按钮并不是独立业务控制台，而是构造 <code>ConsoleCommandRequest</code>，
+          继续走 <code>ActionGateway</code> 到 <code>BrowserConsole</code>。
+        </p>
+
+        <div class="diagram-shell">
+          <div class="diagram-toolbar">
+            <span>Manual operation creation flow</span>
+            <span>现状：命令 ID 仍是 browser.*</span>
+          </div>
+          <div class="diagram-canvas">
+            <pre class="mermaid">
+flowchart LR
+  U["用户点击：创建粗加工工序"] --> W["CamMainWindow::createRoughingOperationDirectly"]
+  W --> R["ConsoleCommandRequest&lt;br/&gt;command_id = browser.create_roughing_operation"]
+  R --> G["ActionGateway::dispatch"]
+  G --> B["BrowserConsole::execute"]
+  B --> C["BrowserConsole::createRoughingOperation"]
+  C --> Repo["Repository 保存 Operation 对象"]
+  Repo --> Tree["CamMainWindow::refreshBrowserTree"]
+  Tree --> View["CamViewport 显示工序预览"]
+
+  classDef problem fill:#fff3df,stroke:#d48924,color:#5b3200;
+  class R,B,C problem;
+            </pre>
+          </div>
+        </div>
+
+        <div class="callout">
+          <p>
+            这条链路的优点是人工操作已经通过统一命令入口执行；问题是命令命名和执行归属仍被绑在
+            <code>BrowserConsole</code> 上。
+          </p>
+        </div>
+      </section>
+
+      <section id="agent-flow" class="section">
+        <h2>Agent 创建工序链路</h2>
+        <p>
+          Agent 侧先请求草案，用户确认后由 <code>AgentPlanExecutor</code> 执行技能。
+          复合技能会拆成创建工序和生成刀轨两个命令，再进入同一个 Gateway/Console 执行链。
+        </p>
+
+        <div class="diagram-shell diagram-wide">
+          <div class="diagram-toolbar">
+            <span>Agent operation creation flow</span>
+            <span>现状：确认后才执行，但草案展示和普通 CAM UI 仍需继续打磨</span>
+          </div>
+          <div class="diagram-canvas">
+            <pre class="mermaid">
+flowchart LR
+  U["用户输入加工意图"] --> D["AgentReviewDialog"]
+  D --> S["HttpAgentDraftService::createDraft"]
+  S --> API["Python Backend / LLM Planner"]
+  API --> Codec["AgentPlanDraftJsonCodec"]
+  Codec --> Draft["AgentPlanDraft&lt;br/&gt;SkillStepDraft"]
+  Draft --> D
+  D --> Confirm["用户确认草案"]
+  Confirm --> Exec["AgentPlanExecutor::execute"]
+  Exec --> Runtime["SkillRuntime::execute"]
+  Runtime --> Gateway["ActionGateway::dispatch"]
+  Gateway --> Browser["BrowserConsole::execute"]
+  Browser --> Op["createRoughingOperation"]
+  Browser --> Tp["generateToolpath"]
+  Op --> Repo["Repository 保存 Operation"]
+  Tp --> Repo
+  Repo --> UI["CamMainWindow 刷新树和绘图区"]
+
+  classDef problem fill:#fff3df,stroke:#d48924,color:#5b3200;
+  class Gateway,Browser,Op,Tp problem;
+            </pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="issues" class="section">
+        <h2>当前问题</h2>
+        <div class="issue">
+          <h3>核心问题</h3>
+          <p>
+            <code>BrowserConsole</code> 目前承担了不该承担的工序/刀轨业务：
+            <code>createRoughingOperation</code> 和 <code>generateToolpath</code> 都在它内部。
+            这会让“UI 交互入口”和“CAM 业务服务”的边界混在一起。
+          </p>
+        </div>
+
+        <ul>
+          <li><code>ActionGateway</code> 只持有一个 <code>BrowserConsole</code>，还没有把工序、刀轨等业务动作委托给独立 Service。</li>
+          <li><code>CamMainWindow</code> 聚合了 UI、Repository、Gateway、Runtime、Executor、DraftService 等过多职责。</li>
+          <li><code>Repository</code> 当前对象模型较薄，主要是 <code>object_id</code>、<code>ObjectType</code>、<code>display_name</code>，工序参数、刀具、刀轨状态还没有形成完整领域模型。</li>
+          <li>普通 CAM UI 还缺少工序选择、几何体/特征差异化 mock、工序编辑、右键菜单、自动计算/删除刀轨等基础工作流。</li>
+          <li>当前代码里树结构还直接落在 <code>CamMainWindow</code> / <code>QTreeWidget</code> 附近，尚未抽象出 <code>BrowserTree</code>、<code>BrowserTreeItem</code>、<code>FrameItem</code>、<code>OperationItem</code> 等 UI 对象。</li>
+          <li>Agent 能产出结构化草案，但当前体验容易显得像“模板回答”，需要建立在更可信的 CAM 基础能力之上。</li>
+        </ul>
+      </section>
+
+      <section id="prompt-cases" class="section">
+        <h2>Prompt 驱动案例池</h2>
+        <p>
+          这里记录的是“用户用一句话驱动 CAM 完成一串具体动作”的候选案例。
+          这些案例不是要求马上实现 LLM，而是用来反推普通 CAM、服务接口、树 item 行为和自动化测试。
+        </p>
+
+        <div class="summary-grid">
+          <div class="note">
+            <h3>批量创建工序</h3>
+            <p>
+              Prompt：<code>帮我创建 10 个钻孔工序</code>。
+              期望：系统批量创建 10 个可见的 Operation 节点，命名可区分，树上能看到每个工序。
+            </p>
+          </div>
+          <div class="note">
+            <h3>打开并修改工序</h3>
+            <p>
+              Prompt：<code>帮我打开这个工序界面，把安全高度改成 5mm，然后重新计算</code>。
+              期望：定位当前工序，打开编辑界面，修改参数，标记刀轨需重算，再触发计算。
+            </p>
+          </div>
+          <div class="note">
+            <h3>不满意后重算</h3>
+            <p>
+              Prompt：<code>当前刀轨我不满意，改用更小的 stepover 重新生成</code>。
+              期望：找到当前工序参数，减小横向步距，删除或覆盖旧刀轨，生成新的刀轨预览。
+            </p>
+          </div>
+        </div>
+
+        <div class="diagram-shell diagram-wide">
+          <div class="diagram-toolbar">
+            <span>Prompt-driven CAM scenarios</span>
+            <span>这些案例用于驱动 OperationFactory、OperationService、ToolPathService 和 BrowserTreeItem 设计</span>
+          </div>
+          <div class="diagram-canvas">
+            <pre class="mermaid">
+flowchart TB
+  A["选择合适工序加工型腔&lt;br/&gt;帮我选择合适的工序加工这个型腔"] --> A1["识别当前目标 / Feature"]
+  A1 --> A2["OperationCatalog 给出候选工序"]
+  A2 --> A3["ToolLibrary 给出候选刀具"]
+  A3 --> A4["生成可审核草案"]
+  A4 --> A5["确认后创建工序 / 可选计算刀轨"]
+
+  B["批量创建工序&lt;br/&gt;帮我创建 10 个钻孔工序"] --> B1["OperationFactory 批量创建 Operation"]
+  B1 --> B2["BrowserTree 刷新出 10 个 OperationItem"]
+  B2 --> B3["每个节点有独立 object_id 和参数集"]
+
+  C["打开工序并修改参数&lt;br/&gt;打开这个工序，把安全高度改成 5mm"] --> C1["BrowserTree 定位 OperationItem"]
+  C1 --> C2["打开 Operation 编辑界面"]
+  C2 --> C3["OperationService 更新参数"]
+  C3 --> C4["工序状态变为需重新计算"]
+
+  D["刀轨不满意后重算&lt;br/&gt;改用更小 stepover 重新生成刀轨"] --> D1["读取当前工序参数"]
+  D1 --> D2["更新 stepover"]
+  D2 --> D3["ToolPathService 删除/覆盖旧刀轨"]
+  D3 --> D4["重新计算并刷新 ToolPathItem / 视图区"]
+
+  E["信息不足时追问&lt;br/&gt;帮我加工一下"] --> E1["缺少目标/工序/刀具/参数"]
+  E1 --> E2["停止执行，询问用户补充"]
+
+  classDef case fill:#e8f2ff,stroke:#5d8fc7,color:#17324d;
+  class A,B,C,D,E case;
+            </pre>
+          </div>
+        </div>
+
+        <h3>可转成测试的验收点</h3>
+        <ul>
+          <li>批量创建：输入数量为 10 时，Repository 中出现 10 个 Operation，BrowserTree 中出现 10 个对应 OperationItem。</li>
+          <li>批量创建：每个 Operation 都有稳定且不同的 <code>object_id</code>，显示名重复也不能影响后续定位。</li>
+          <li>工序工厂：创建不同工序时走 <code>OperationFactory</code> / <code>OperationCatalog</code>，而不是在 UI 或 Agent 里硬编码几十个分支。</li>
+          <li>打开工序：从 prompt 或右键菜单定位到当前 <code>OperationItem</code> 后，能打开同一个工序编辑界面。</li>
+          <li>修改参数：参数变更通过 <code>OperationService</code> 写入工序参数集，并让既有刀轨变成过期或需重算状态。</li>
+          <li>重算刀轨：更小 <code>stepover</code> 重新计算后，旧 Toolpath 被替换或标记历史，新 Toolpath 节点和视图区预览同步更新。</li>
+          <li>推荐工序：<code>帮我选择合适的工序加工这个型腔</code> 不应在 Qt 里按中文关键词硬编码，而应依赖 Feature、OperationCatalog、ToolLibrary 和 Planner/Recommendation 的结构化结果。</li>
+          <li>信息不足：没有明确目标或当前选择不合法时，系统停止并询问，而不是默认对错误对象创建工序。</li>
+        </ul>
+      </section>
+
+      <section id="target" class="section">
+        <h2>下一步目标拆分</h2>
+        <p>
+          目标不是马上把 LLM 做得更聪明，而是先把普通 CAM 的领域入口拆清楚：
+          人工操作和 Agent 操作都应该进入同一套结构化命令。Console 更接近 UI 对应的交互入口，
+          工序、刀轨等领域动作应继续下沉到可复用的 Service。当前只有一棵树，未来如果出现多棵树，
+          <code>BrowserConsole</code> 下方需要重构出 <code>BrowserTree</code> 和 <code>BrowserTreeItem</code> 层。
+        </p>
+
+        <div class="diagram-shell">
+          <div class="diagram-toolbar">
+            <span>Recommended UI and service ownership</span>
+            <span>目标方向：UI Console 和业务 Service 分离</span>
+          </div>
+          <div class="diagram-canvas">
+            <pre class="mermaid">
+flowchart LR
+  UI["人工 UI 操作"] --> Gateway["ActionGateway"]
+  Agent["Agent 结构化意图"] --> Gateway
+
+  Gateway --> Browser["BrowserConsole&lt;br/&gt;UI 交互入口 / 多棵树协调"]
+  Browser --> Tree["BrowserTree&lt;br/&gt;当前只有一棵树&lt;br/&gt;未来可扩展多棵树"]
+  Tree --> Item["BrowserTreeItem&lt;br/&gt;统一 item 基类 / 接口"]
+  Item --> FrameItem["FrameItem"]
+  Item --> OperationItem["OperationItem"]
+  Item --> ToolPathItem["ToolPathItem"]
+
+  OperationItem --> Operation["OperationService&lt;br/&gt;创建 / 编辑 / 删除工序"]
+  OperationItem --> ToolPath["ToolPathService&lt;br/&gt;计算 / 删除 / 预览刀轨"]
+  ToolPathItem --> ToolPath
+
+  Operation --> Repo["Repository / Domain Model"]
+  ToolPath --> Repo
+  Tree --> Repo
+
+  Feature["FeatureRecognitionService&lt;br/&gt;后续：几何特征识别和推荐"] -.-> Operation
+  ToolLib["ToolLibrary&lt;br/&gt;刀具选择和替代策略"] -.-> Operation
+
+  classDef target fill:#eef9f1,stroke:#4b9a61,color:#17391f;
+  class Operation,ToolPath,Feature,ToolLib,Tree,Item,FrameItem,OperationItem,ToolPathItem target;
+            </pre>
+          </div>
+        </div>
+
+        <div class="target">
+          <h3>拆分原则</h3>
+          <ul>
+            <li><code>BrowserConsole</code> 是和浏览器区域 UI 对应的交互入口，可以协调当前树，也为未来多棵树预留位置。</li>
+            <li><code>BrowserTree</code> 维护一棵具体的树；当前只有一棵树，未来如果有多棵树，需要把树状态从 <code>CamMainWindow</code> 进一步迁移出来。</li>
+            <li><code>BrowserTreeItem</code> 维护树节点行为，下面可以有 <code>FrameItem</code>、<code>OperationItem</code>、<code>ToolPathItem</code> 等具体 item。</li>
+            <li>例如“右键计算刀轨”应从 UI 菜单进入 <code>BrowserConsole</code>，传到当前 <code>BrowserTree</code>，再分发到选中的 <code>OperationItem</code> 内部执行。</li>
+            <li><code>BrowserConsole</code> 不直接沉淀工序/刀轨业务逻辑，而是调用 <code>OperationService</code> 和 <code>ToolPathService</code>。</li>
+            <li><code>OperationService</code> 负责创建、编辑、删除工序；创建工序不强制要求先选择几何体。</li>
+            <li><code>ToolPathService</code> 负责计算、删除、刷新刀轨预览。</li>
+            <li><code>ActionGateway</code> 继续接收结构化命令，后续可把 UI 事件入口和 Service 调用关系整理得更清楚。</li>
+            <li>未来 <code>FeatureRecognitionService</code> 根据几何/特征给出推荐工序，但短期不硬限制“每种几何只能创建匹配工序”。</li>
+          </ul>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: "base",
+      securityLevel: "loose",
+      flowchart: {
+        htmlLabels: true,
+        curve: "basis",
+        nodeSpacing: 56,
+        rankSpacing: 72
+      },
+      class: {
+        useMaxWidth: false
+      },
+      themeVariables: {
+        primaryColor: "#ffffff",
+        primaryTextColor: "#17202a",
+        primaryBorderColor: "#8fa1b5",
+        lineColor: "#697b91",
+        secondaryColor: "#e8f2ff",
+        tertiaryColor: "#f4f6f8",
+        fontFamily: "Microsoft YaHei, Segoe UI, Arial, sans-serif"
+      }
+    });
+  </script>
+</body>
+</html>

@@ -189,6 +189,16 @@ The Repository is responsible for:
 
 The Canonical CAM Model keeps stable references; the Repository provides real data.
 
+### Tool Library
+
+The current Python demo uses a file-backed `ToolLibrary` for small candidate tool context. This is not the production shape.
+
+In production, Tool Library may read from a project tool table, enterprise database, Repository, or recommendation service. If natural-language constraints need query translation, Text-to-SQL belongs inside the backend planning-context retrieval boundary and must only retrieve candidate tools, not execute CAM commands.
+
+The stable rule is that LLM planning receives a small candidate list with stable `tool_id` values, the user reviews the resulting `AgentPlanDraft`, and execution still goes through Skill, Gateway, Adapter, and Component Console.
+
+See `docs/agent-demo-to-production.md` for the demo-to-production migration notes.
+
 ### Skill
 
 A Skill is an Agent-facing reusable workflow.
