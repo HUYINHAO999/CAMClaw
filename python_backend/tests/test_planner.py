@@ -299,6 +299,36 @@ class AgentPlannerTests(unittest.TestCase):
         self.assertEqual("stepover", draft["steps"][0]["inputs"]["parameter_name"])
         self.assertEqual("true", draft["steps"][0]["inputs"]["recompute_toolpath"])
 
+    def test_preserves_update_operation_type_scope_for_human_in_loop(self):
+        llm = FakeLlmClient(
+            "{"
+            '"command_id":"browser.updateOperation",'
+            '"schema_id":"browser.updateOperation.v1",'
+            '"inputs":{'
+            '"scope":"operation_type",'
+            '"operation_type":"pocket",'
+            '"parameter_name":"stepover",'
+            '"parameter_value":"0.8",'
+            '"recompute_toolpath":"true"'
+            "}"
+            "}"
+        )
+        planner = AgentPlanner(llm)
+
+        draft = planner.create_draft(
+            PlannerInput(
+                trace_id="trace_py_update_scope",
+                user_request="帮我打开树上的型腔铣工序，把步进改小一些，然后重新计算",
+                target_object_id="toolpath_op_roughing_2",
+            )
+        )
+
+        inputs = draft["steps"][0]["inputs"]
+        self.assertEqual("toolpath_op_roughing_2", inputs["target_object_id"])
+        self.assertEqual("operation_type", inputs["scope"])
+        self.assertEqual("pocket", inputs["operation_type"])
+        self.assertEqual("stepover", inputs["parameter_name"])
+
     def test_builds_toolpath_visibility_command(self):
         llm = FakeLlmClient(
             "{"

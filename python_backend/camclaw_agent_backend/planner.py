@@ -287,12 +287,21 @@ class AgentPlanner:
         return result
 
     def _build_update_operation_inputs(self, inputs: Dict[str, object], planner_input: PlannerInput) -> Dict[str, str]:
-        return {
+        result = {
             "target_object_id": planner_input.target_object_id,
             "parameter_name": self._required_string(inputs, "parameter_name"),
             "parameter_value": self._required_string(inputs, "parameter_value"),
             "recompute_toolpath": self._boolean_string(str(inputs.get("recompute_toolpath", "false"))),
         }
+        explicit_operation_type = str(inputs.get("operation_type", ""))
+        operation_type = explicit_operation_type or self._operation_type_filter_for_visibility(planner_input.user_request)
+        scope = str(inputs.get("scope", ""))
+        if operation_type:
+            result["scope"] = "operation_type"
+            result["operation_type"] = operation_type
+        elif scope:
+            result["scope"] = scope
+        return result
 
     def _build_toolpath_visibility_inputs(self, inputs: Dict[str, object], planner_input: PlannerInput) -> Dict[str, str]:
         visibility = self._required_string(inputs, "visibility")
