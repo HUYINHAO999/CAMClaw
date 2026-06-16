@@ -9,6 +9,7 @@
 #include <QInputDialog>
 #include <QListWidget>
 #include <QMessageBox>
+#include <QTabWidget>
 #include <QVBoxLayout>
 
 #include <map>
@@ -68,6 +69,7 @@ AgentReviewDialog::AgentReviewDialog(
       result_status_label_(0),
       result_body_edit_(0),
       trace_edit_(0),
+      tabs_(0),
       rejection_reason_edit_(0),
       confirm_button_(0),
       generate_button_(0),
@@ -127,29 +129,97 @@ QString AgentReviewDialog::createdToolpathId() const
 
 void AgentReviewDialog::buildUi()
 {
+    setModal(true);
+    setMinimumSize(500, 340);
+    setStyleSheet(
+        "QDialog { background: #f6f8fb; color: #172033; }"
+        "QLabel { color: #26354d; }"
+        "QGroupBox {"
+        "  border: 1px solid #d8dee8;"
+        "  border-radius: 6px;"
+        "  margin-top: 8px;"
+        "  padding: 8px;"
+        "  background: #ffffff;"
+        "}"
+        "QGroupBox::title {"
+        "  subcontrol-origin: margin;"
+        "  left: 10px;"
+        "  padding: 0 4px;"
+        "  color: #344054;"
+        "}"
+        "QLineEdit, QPlainTextEdit {"
+        "  border: 1px solid #cbd5e1;"
+        "  border-radius: 4px;"
+        "  padding: 4px 6px;"
+        "  background: #ffffff;"
+        "  selection-background-color: #b9ddff;"
+        "}"
+        "QLineEdit:focus, QPlainTextEdit:focus {"
+        "  border: 1px solid #0f6cbd;"
+        "}"
+        "QPushButton {"
+        "  min-height: 26px;"
+        "  padding: 4px 10px;"
+        "  border: 1px solid #b8c3d1;"
+        "  border-radius: 4px;"
+        "  background: #ffffff;"
+        "}"
+        "QPushButton:hover { background: #eef6ff; border-color: #80b8ed; }"
+        "QPushButton:disabled { color: #98a2b3; background: #f2f4f7; }"
+        "QPushButton#confirmButton, QPushButton#generateDraftButton {"
+        "  background: #0f6cbd;"
+        "  border-color: #0f6cbd;"
+        "  color: #ffffff;"
+        "}"
+        "QPushButton#confirmButton:hover, QPushButton#generateDraftButton:hover {"
+        "  background: #0b5cab;"
+        "}"
+        "QTabWidget::pane {"
+        "  border: 1px solid #d8dee8;"
+        "  border-radius: 6px;"
+        "  background: #ffffff;"
+        "}"
+        "QTabBar::tab {"
+        "  padding: 5px 10px;"
+        "  margin-right: 3px;"
+        "  border: 1px solid #d8dee8;"
+        "  border-bottom: 0;"
+        "  border-top-left-radius: 5px;"
+        "  border-top-right-radius: 5px;"
+        "  background: #eef2f7;"
+        "}"
+        "QTabBar::tab:selected { background: #ffffff; color: #0f6cbd; }");
+
     trace_id_label_ = new QLabel(this);
     trace_id_label_->setObjectName("traceIdLabel");
     draft_status_label_ = new QLabel(this);
     draft_status_label_->setObjectName("draftStatusLabel");
     target_label_ = new QLabel(QString::fromUtf8("目标对象: ") + target_display_name_ + " / " + target_object_id_, this);
     target_label_->setObjectName("targetLabel");
+    target_label_->setWordWrap(true);
 
     prompt_edit_ = new QLineEdit(this);
     prompt_edit_->setObjectName("agentPromptEdit");
-    prompt_edit_->setPlaceholderText(QString::fromUtf8("例如：给当前型腔创建粗加工工序，使用 10mm 平刀"));
+    prompt_edit_->setPlaceholderText(QString::fromUtf8("例如：帮我打开树上的型腔铣工序，把刀具改大一些，再进行计算"));
     generate_button_ = new QPushButton(QString::fromUtf8("生成草案"), this);
     generate_button_->setObjectName("generateDraftButton");
 
     step_label_ = new QLabel(this);
     step_label_->setObjectName("stepLabel");
     step_label_->setWordWrap(true);
+    step_label_->setAlignment(Qt::AlignTop | Qt::AlignLeft);
 
-    QGroupBox* draft_group = new QGroupBox(QString::fromUtf8("草案步骤"), this);
-    QVBoxLayout* draft_layout = new QVBoxLayout(draft_group);
+    QWidget* draft_page = new QWidget(this);
+    QVBoxLayout* draft_layout = new QVBoxLayout(draft_page);
+    draft_layout->setContentsMargins(8, 8, 8, 8);
     draft_layout->addWidget(step_label_);
+    draft_layout->addStretch();
 
-    QGroupBox* parameter_group = new QGroupBox(QString::fromUtf8("参数"), this);
+    QWidget* parameter_page = new QWidget(this);
+    QGroupBox* parameter_group = new QGroupBox(QString::fromUtf8("参数"), parameter_page);
     QFormLayout* parameter_layout = new QFormLayout(parameter_group);
+    parameter_layout->setLabelAlignment(Qt::AlignRight);
+    parameter_layout->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
     const QString names[] = {
         "operation_type",
         "tool_id",
@@ -177,28 +247,43 @@ void AgentReviewDialog::buildUi()
         parameter_layout->addRow(labels[index], edit);
         connect(edit, SIGNAL(editingFinished()), this, SLOT(editParameter()));
     }
+    QVBoxLayout* parameter_page_layout = new QVBoxLayout(parameter_page);
+    parameter_page_layout->setContentsMargins(8, 8, 8, 8);
+    parameter_page_layout->addWidget(parameter_group);
+    parameter_page_layout->addStretch();
 
     result_status_label_ = new QLabel(this);
     result_status_label_->setObjectName("resultStatusLabel");
     result_body_edit_ = new QPlainTextEdit(this);
     result_body_edit_->setObjectName("resultBodyEdit");
     result_body_edit_->setReadOnly(true);
+    result_body_edit_->setMinimumHeight(116);
 
-    QGroupBox* result_group = new QGroupBox(QString::fromUtf8("结果"), this);
+    QWidget* result_page = new QWidget(this);
+    QGroupBox* result_group = new QGroupBox(QString::fromUtf8("结果"), result_page);
     QVBoxLayout* result_layout = new QVBoxLayout(result_group);
     result_layout->addWidget(result_status_label_);
     result_layout->addWidget(result_body_edit_);
+    QVBoxLayout* result_page_layout = new QVBoxLayout(result_page);
+    result_page_layout->setContentsMargins(8, 8, 8, 8);
+    result_page_layout->addWidget(result_group);
 
     trace_edit_ = new QPlainTextEdit(this);
     trace_edit_->setObjectName("traceEdit");
     trace_edit_->setReadOnly(true);
-    QGroupBox* trace_group = new QGroupBox(QString::fromUtf8("Trace"), this);
+    trace_edit_->setMinimumHeight(116);
+    QWidget* trace_page = new QWidget(this);
+    QGroupBox* trace_group = new QGroupBox(QString::fromUtf8("Trace"), trace_page);
     QVBoxLayout* trace_layout = new QVBoxLayout(trace_group);
     trace_layout->addWidget(trace_edit_);
+    QVBoxLayout* trace_page_layout = new QVBoxLayout(trace_page);
+    trace_page_layout->setContentsMargins(8, 8, 8, 8);
+    trace_page_layout->addWidget(trace_group);
 
     rejection_reason_edit_ = new QPlainTextEdit(this);
     rejection_reason_edit_->setObjectName("rejectionReasonEdit");
     rejection_reason_edit_->setPlaceholderText(QString::fromUtf8("例如：刀具太大，换小刀"));
+    rejection_reason_edit_->setMaximumHeight(42);
 
     confirm_button_ = new QPushButton(QString::fromUtf8("确认执行"), this);
     confirm_button_->setObjectName("confirmButton");
@@ -212,42 +297,53 @@ void AgentReviewDialog::buildUi()
     close_button_->setObjectName("closeButton");
 
     QHBoxLayout* header_layout = new QHBoxLayout();
-    header_layout->addWidget(trace_id_label_);
-    header_layout->addStretch();
+    header_layout->setContentsMargins(0, 0, 0, 0);
+    QLabel* title_label = new QLabel(QString::fromUtf8("CAMClaw"), this);
+    QFont title_font = title_label->font();
+    title_font.setPointSize(title_font.pointSize() + 1);
+    title_font.setBold(true);
+    title_label->setFont(title_font);
+    header_layout->addWidget(title_label);
+    header_layout->addSpacing(12);
     header_layout->addWidget(draft_status_label_);
+    header_layout->addStretch();
+    header_layout->addWidget(trace_id_label_);
 
     QHBoxLayout* prompt_layout = new QHBoxLayout();
     prompt_layout->addWidget(new QLabel(QString::fromUtf8("需求"), this));
     prompt_layout->addWidget(prompt_edit_, 1);
     prompt_layout->addWidget(generate_button_);
 
-    QGridLayout* grid = new QGridLayout();
-    grid->addWidget(draft_group, 0, 0);
-    grid->addWidget(parameter_group, 0, 1);
-    grid->addWidget(result_group, 1, 0);
-    grid->addWidget(trace_group, 1, 1);
+    tabs_ = new QTabWidget(this);
+    tabs_->setObjectName("agentReviewTabs");
+    tabs_->addTab(draft_page, QString::fromUtf8("草案"));
+    tabs_->addTab(parameter_page, QString::fromUtf8("参数"));
+    tabs_->addTab(result_page, QString::fromUtf8("结果"));
+    tabs_->addTab(trace_page, QString::fromUtf8("Trace"));
 
-    QVBoxLayout* action_layout = new QVBoxLayout();
+    QHBoxLayout* rejection_layout = new QHBoxLayout();
+    rejection_layout->addWidget(new QLabel(QString::fromUtf8("拒绝原因"), this));
+    rejection_layout->addWidget(rejection_reason_edit_, 1);
+
+    QHBoxLayout* action_layout = new QHBoxLayout();
     action_layout->addWidget(confirm_button_);
-    action_layout->addWidget(simulate_failure_button_);
-    action_layout->addWidget(new QLabel(QString::fromUtf8("拒绝原因"), this));
-    action_layout->addWidget(rejection_reason_edit_);
     action_layout->addWidget(reject_button_);
     action_layout->addWidget(regenerate_button_);
     action_layout->addStretch();
+    action_layout->addWidget(simulate_failure_button_);
     action_layout->addWidget(close_button_);
 
-    QVBoxLayout* left_layout = new QVBoxLayout();
-    left_layout->addLayout(header_layout);
-    left_layout->addWidget(target_label_);
-    left_layout->addLayout(prompt_layout);
-    left_layout->addLayout(grid);
-
-    QHBoxLayout* root_layout = new QHBoxLayout(this);
-    root_layout->addLayout(left_layout, 1);
+    QVBoxLayout* root_layout = new QVBoxLayout(this);
+    root_layout->setContentsMargins(10, 8, 10, 8);
+    root_layout->setSpacing(6);
+    root_layout->addLayout(header_layout);
+    root_layout->addWidget(target_label_);
+    root_layout->addLayout(prompt_layout);
+    root_layout->addWidget(tabs_, 1);
+    root_layout->addLayout(rejection_layout);
     root_layout->addLayout(action_layout);
 
-    resize(920, 620);
+    resize(560, 380);
 
     connect(generate_button_, SIGNAL(clicked()), this, SLOT(generateDraft()));
     connect(confirm_button_, SIGNAL(clicked()), this, SLOT(confirmDraft()));
@@ -384,6 +480,9 @@ bool AgentReviewDialog::requestDraftFromBackend(const QString& prompt, const QSt
                 + quote(user_message)
                 + QString::fromUtf8("\n}"));
         render();
+        if (tabs_ != 0) {
+            tabs_->setCurrentIndex(2);
+        }
         return false;
     }
 
@@ -392,6 +491,9 @@ bool AgentReviewDialog::requestDraftFromBackend(const QString& prompt, const QSt
         success_status,
         QString::fromUtf8("{\n  \"ok\": true,\n  \"source\": \"python_backend_llm_planner\",\n  \"message\": \"草案已生成，请审核参数。\"\n}"));
     render();
+    if (tabs_ != 0) {
+        tabs_->setCurrentIndex(0);
+    }
     return true;
 }
 

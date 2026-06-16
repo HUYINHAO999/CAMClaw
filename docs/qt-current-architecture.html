@@ -559,7 +559,7 @@ flowchart LR
 flowchart TB
   A["选择合适工序加工型腔&lt;br/&gt;帮我选择合适的工序加工这个型腔"] --> A1["识别当前目标 / Feature"]
   A1 --> A2["OperationCatalog 给出候选工序"]
-  A2 --> A3["ToolLibrary 给出候选刀具"]
+  A2 --> A3["ToolSelectionPolicy 解析可用刀具"]
   A3 --> A4["生成可审核草案"]
   A4 --> A5["确认后创建工序 / 可选计算刀轨"]
 
@@ -594,7 +594,7 @@ flowchart TB
           <li>打开工序：从 prompt 或右键菜单定位到当前 <code>OperationItem</code> 后，能打开同一个工序编辑界面。</li>
           <li>修改参数：参数变更通过 <code>OperationService</code> 写入工序参数集，并让既有刀轨变成过期或需重算状态。</li>
           <li>重算刀轨：更小 <code>stepover</code> 重新计算后，旧 Toolpath 被替换或标记历史，新 Toolpath 节点和视图区预览同步更新。</li>
-          <li>推荐工序：<code>帮我选择合适的工序加工这个型腔</code> 不应在 Qt 里按中文关键词硬编码，而应依赖 Feature、OperationCatalog、ToolLibrary 和 Planner/Recommendation 的结构化结果。</li>
+          <li>推荐工序：<code>帮我选择合适的工序加工这个型腔</code> 不应在 Qt 里按中文关键词硬编码，而应依赖 Feature、OperationCatalog、ToolSelectionPolicy 和 Planner/Recommendation 的结构化结果。</li>
           <li>信息不足：没有明确目标或当前选择不合法时，系统停止并询问，而不是默认对错误对象创建工序。</li>
         </ul>
       </section>
@@ -635,7 +635,7 @@ flowchart LR
   Tree --> Repo
 
   Feature["FeatureRecognitionService&lt;br/&gt;后续：几何特征识别和推荐"] -.-> Operation
-  ToolLib["ToolLibrary&lt;br/&gt;刀具选择和替代策略"] -.-> Operation
+  ToolLib["ToolSelectionPolicy&lt;br/&gt;刀具选择和替代策略"] -.-> Operation
 
   classDef target fill:#eef9f1,stroke:#4b9a61,color:#17391f;
   class Operation,ToolPath,Feature,ToolLib,Tree,Item,FrameItem,OperationItem,ToolPathItem target;

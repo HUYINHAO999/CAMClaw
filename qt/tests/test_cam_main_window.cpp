@@ -527,6 +527,9 @@ void CamMainWindowTest::agentDialogShowsFriendlyLlmConnectionFailure()
     QTest::mouseClick(generate, Qt::LeftButton);
 
     QCOMPARE(dialog.resultStatusText(), QString::fromUtf8("草案生成失败"));
+    QTabWidget* tabs = dialog.findChild<QTabWidget*>("agentReviewTabs");
+    QVERIFY(tabs != 0);
+    QCOMPARE(tabs->currentIndex(), 2);
     QVERIFY(dialog.resultBodyText().contains("llm_service_unavailable"));
     QVERIFY(dialog.resultBodyText().contains(QString::fromUtf8("暂时连不上大模型服务")));
     QVERIFY(dialog.resultBodyText().contains("CAMCLAW_LLM_BASE_URL"));

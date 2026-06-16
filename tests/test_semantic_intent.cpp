@@ -210,6 +210,70 @@ static int semantic_executor_resolves_larger_available_tool_expression()
     return EXIT_SUCCESS;
 }
 
+static int semantic_executor_resolves_smaller_available_tool_expression()
+{
+    camclaw::Repository repository;
+    camclaw::CamObject operation("op_pocket_001", camclaw::ObjectType::Operation, "型腔铣");
+    operation.attributes["operation_type"] = "pocket";
+    operation.attributes["tool_id"] = "tool_010";
+    repository.save(operation);
+
+    camclaw::SemanticPlanDraft draft("trace_semantic_smaller_tool");
+    camclaw::SemanticIntent edit;
+    edit.id = "i1";
+    edit.kind = camclaw::SemanticIntentKind::EditOperation;
+    edit.target.kind = camclaw::SemanticTargetKind::Objects;
+    edit.target.object_ids.push_back("op_pocket_001");
+    camclaw::ParameterUpdateIntent update;
+    update.parameter = "tool_id";
+    update.expression = "smaller_available_tool";
+    edit.updates.push_back(update);
+    draft.addIntent(edit);
+    draft.confirm();
+
+    camclaw::BrowserConsole browser_console(repository);
+    camclaw::HumanInLoopService human_in_loop;
+    camclaw::SemanticIntentExecutor executor(browser_console, human_in_loop);
+    const camclaw::AgentPlanExecutionResult result = executor.execute(draft);
+
+    REQUIRE_TRUE(result.ok);
+    REQUIRE_EQ(std::string("tool_006"), repository.get("op_pocket_001").attributes["tool_id"]);
+
+    return EXIT_SUCCESS;
+}
+
+static int semantic_executor_resolves_drilling_larger_available_tool_expression()
+{
+    camclaw::Repository repository;
+    camclaw::CamObject operation("op_drilling_001", camclaw::ObjectType::Operation, "钻孔");
+    operation.attributes["operation_type"] = "drilling";
+    operation.attributes["tool_id"] = "drill_006";
+    repository.save(operation);
+
+    camclaw::SemanticPlanDraft draft("trace_semantic_drilling_larger_tool");
+    camclaw::SemanticIntent edit;
+    edit.id = "i1";
+    edit.kind = camclaw::SemanticIntentKind::EditOperation;
+    edit.target.kind = camclaw::SemanticTargetKind::Objects;
+    edit.target.object_ids.push_back("op_drilling_001");
+    camclaw::ParameterUpdateIntent update;
+    update.parameter = "tool_id";
+    update.expression = "larger_available_tool";
+    edit.updates.push_back(update);
+    draft.addIntent(edit);
+    draft.confirm();
+
+    camclaw::BrowserConsole browser_console(repository);
+    camclaw::HumanInLoopService human_in_loop;
+    camclaw::SemanticIntentExecutor executor(browser_console, human_in_loop);
+    const camclaw::AgentPlanExecutionResult result = executor.execute(draft);
+
+    REQUIRE_TRUE(result.ok);
+    REQUIRE_EQ(std::string("drill_008"), repository.get("op_drilling_001").attributes["tool_id"]);
+
+    return EXIT_SUCCESS;
+}
+
 int main()
 {
     int status = semantic_codec_decodes_visibility_plan();
@@ -229,6 +293,14 @@ int main()
         return status;
     }
     status = semantic_executor_resolves_larger_available_tool_expression();
+    if (status != EXIT_SUCCESS) {
+        return status;
+    }
+    status = semantic_executor_resolves_smaller_available_tool_expression();
+    if (status != EXIT_SUCCESS) {
+        return status;
+    }
+    status = semantic_executor_resolves_drilling_larger_available_tool_expression();
     if (status != EXIT_SUCCESS) {
         return status;
     }

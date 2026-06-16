@@ -191,7 +191,7 @@ The Canonical CAM Model keeps stable references; the Repository provides real da
 
 ### Tool Library
 
-The current Python demo uses a file-backed `ToolLibrary` for small candidate tool context. This is not the production shape.
+The current Python backend does not own final tool selection. It preserves relative tool intent, while the Qt / C++ CAM side resolves available tools.
 
 In production, Tool Library may read from a project tool table, enterprise database, Repository, or recommendation service. If natural-language constraints need query translation, Text-to-SQL belongs inside the backend planning-context retrieval boundary and must only retrieve candidate tools, not execute CAM commands.
 

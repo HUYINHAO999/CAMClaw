@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-def semantic_intent_plan_json_contract(tool_context: str = "") -> str:
-    context = tool_context or "No tool catalog is available."
+def semantic_intent_plan_json_contract() -> str:
     return (
         "Return only strict JSON for a CAMClaw semantic intent plan. "
         "The LLM is a semantic parser, not a CAM executor. "
@@ -25,12 +24,14 @@ def semantic_intent_plan_json_contract(tool_context: str = "") -> str:
         "Use a ref target with ref previous.primary_object_ids when the regeneration refers to the previous intent result. "
         "Use set_toolpath_visibility when the user asks to show/hide/toggle toolpaths. "
         "set_toolpath_visibility fields: id, intent, actions. Each action has visibility and target. "
+        "visibility must be exactly one of: \"show\", \"hide\", \"toggle\". Never output \"hidden\", \"visible\", or localized words for visibility. "
         "For all toolpaths use target {\"kind\":\"query\",\"object_type\":\"toolpath\",\"scope\":\"all\",\"filters\":{}}. "
         "For 型腔铣 use operation_type pocket. For 钻孔 use operation_type drilling. For 平面铣 use operation_type finishing. "
         "For operation-class toolpaths use a query target with object_type toolpath, scope matching, and filters.operation_type. "
         "For operation-class operations use a query target with object_type operation, scope matching, and filters.operation_type. "
-        "When the user asks for a larger/smaller tool or smaller stepover, preserve the relative expression instead of choosing the final CAM value. "
-        + context
-        + " "
+        "When the user asks for a larger tool, output an edit_operation update with parameter \"tool_id\", value null, and expression \"larger_available_tool\". "
+        "When the user asks for a smaller tool, output an edit_operation update with parameter \"tool_id\", value null, and expression \"smaller_available_tool\". "
+        "When the user asks for smaller stepover, preserve the relative expression instead of choosing the final CAM value. "
+        "Never choose final tool_id values such as tool_006, tool_010, tool_016, or drill_006. "
         "Do not execute CAM commands. Do not include prose."
     )

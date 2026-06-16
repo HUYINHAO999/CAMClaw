@@ -1,7 +1,6 @@
 import unittest
 
 from camclaw_agent_backend.planner import AgentPlanner, PlannerError, PlannerInput
-from camclaw_agent_backend.tool_library import Tool, ToolLibrary
 
 
 class FakeLlmClient:
@@ -57,13 +56,7 @@ class AgentPlannerTests(unittest.TestCase):
             "}]"
             "}"
         )
-        planner = AgentPlanner(
-            llm,
-            ToolLibrary(
-                default_tool_id="tool_010",
-                tools=[Tool("tool_006", "6mm drill", 6.0, "drill")],
-            ),
-        )
+        planner = AgentPlanner(llm)
 
         planner.create_draft(
             PlannerInput(
@@ -79,7 +72,11 @@ class AgentPlannerTests(unittest.TestCase):
         self.assertIn("machine_feature", contract)
         self.assertIn("create_operations", contract)
         self.assertIn("Do not name Qt slots", contract)
-        self.assertIn("tool_006", contract)
+        self.assertIn('"show", "hide", "toggle"', contract)
+        self.assertIn('Never output "hidden"', contract)
+        self.assertIn("larger_available_tool", contract)
+        self.assertIn("smaller_available_tool", contract)
+        self.assertIn("Never choose final tool_id values", contract)
 
     def test_rejects_unstructured_llm_response(self):
         planner = AgentPlanner(FakeLlmClient("roughing with tool_010"))

@@ -11,9 +11,9 @@ The demo proves this flow:
 3. The reviewed draft is confirmed or rejected.
 4. Confirmed drafts execute through the controlled Skill / Gateway / Console path.
 
-The current Python backend uses `python_backend/config/tool_library.json` as a small file-backed `ToolLibrary`.
+The Python backend no longer uses a file-backed tool library. It asks the LLM to preserve relative tool intent, such as `larger_available_tool` or `smaller_available_tool`, and leaves final tool selection to the CAM execution side.
 
-This file is only a demo substitute for an enterprise tool data source.
+The current Qt / C++ prototype resolves those expressions through `ToolSelectionPolicy`.
 
 ## Production Tool Library Direction
 
@@ -27,14 +27,14 @@ The future `ToolLibrary` should become an interface over an enterprise data sour
 - Repository-backed canonical Tool objects
 - A dedicated tool recommendation service
 
-The planner should ask the `ToolLibrary` for a small, relevant planning context instead of receiving the full catalog.
+The CAM execution side should own final tool selection. If a production planner needs tool hints, it should ask a tool capability for a small, relevant planning context without making the LLM the authoritative decision maker.
 
 ## Possible Retrieval Path
 
 A production path may look like this:
 
 1. Agent Planner receives user request, target object, and rejection reason.
-2. Planner asks a `ToolLibrary` capability for candidate tools.
+2. CAM service asks a `ToolLibrary` capability for candidate tools.
 3. `ToolLibrary` queries a DB or service using structured filters:
    - operation type
    - material
@@ -45,8 +45,8 @@ A production path may look like this:
    - user feedback such as "tool too large"
 4. If natural language needs to become a query, Text-to-SQL may be used inside the backend service boundary.
 5. The result is normalized into a small candidate list with stable `tool_id` values.
-6. The LLM receives only this candidate list and must choose one stable `tool_id`.
-7. The selected `tool_id` remains editable in `AgentPlanDraft` before execution.
+6. The CAM side applies a deterministic tool selection policy.
+7. The resolved `tool_id` remains visible and editable before or after execution.
 
 Text-to-SQL should not directly execute CAM commands. It only helps retrieve planning context.
 
@@ -92,13 +92,13 @@ And each candidate should include:
 
 ## Demo Migration Rule
 
-When moving this demo to Qt, do not bake `tool_library.json` into UI code.
+Do not bake a demo `tool_library.json` into UI code or prompt code.
 
 Keep the UI concerned with review and confirmation only:
 
-- show candidate-derived `tool_id`
+- show CAM-resolved `tool_id`
 - allow the user to edit it
 - reject and regenerate when the whole draft is wrong
 - confirm only reviewed structured data
 
-The backend can later replace `ToolLibrary.from_file()` with DB, Repository, or service-backed implementations without changing the review UI contract.
+The CAM side can later replace the current in-code mock policy with DB, Repository, or service-backed implementations without changing the LLM semantic intent contract.

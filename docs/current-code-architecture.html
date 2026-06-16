@@ -1,0 +1,1226 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CAMClaw 当前代码架构图</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --paper: #ffffff;
+      --ink: #17202a;
+      --muted: #667085;
+      --line: #cfd8e3;
+      --blue: #2563eb;
+      --cyan: #0891b2;
+      --green: #16a34a;
+      --amber: #d97706;
+      --violet: #7c3aed;
+      --slate: #475569;
+      --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      min-width: 1240px;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      line-height: 1.55;
+    }
+
+    header {
+      padding: 28px 36px 20px;
+      background: #101828;
+      color: #fff;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 30px;
+      letter-spacing: 0;
+    }
+
+    header p {
+      max-width: 1120px;
+      margin: 10px 0 0;
+      color: #d0d5dd;
+      font-size: 15px;
+    }
+
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 10px 36px;
+      background: rgba(255, 255, 255, 0.94);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(8px);
+    }
+
+    nav a {
+      color: #344054;
+      text-decoration: none;
+      padding: 6px 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      font-size: 13px;
+      background: #fff;
+    }
+
+    nav a:hover {
+      color: var(--blue);
+      border-color: #93c5fd;
+      background: #eff6ff;
+    }
+
+    main {
+      max-width: 1520px;
+      margin: 0 auto;
+      padding: 28px 36px 60px;
+    }
+
+    section {
+      margin: 0 0 28px;
+      padding: 24px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: 22px;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+
+    p {
+      margin: 8px 0 0;
+      color: var(--muted);
+    }
+
+    code {
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: #f1f5f9;
+      color: #26354d;
+    }
+
+    ul {
+      margin: 8px 0 0;
+      padding-left: 22px;
+    }
+
+    li { margin: 6px 0; }
+
+    .note {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .diagram {
+      overflow-x: auto;
+      padding: 4px 0 10px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(220px, 1fr));
+      gap: 14px;
+    }
+
+    .boundary-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) 76px minmax(0, 0.9fr);
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .boundary-box {
+      padding: 16px;
+      border: 2px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .boundary-box.client {
+      border-color: #93c5fd;
+      background: #f8fbff;
+    }
+
+    .boundary-box.backend {
+      border-color: #fbbf24;
+      background: #fffaf0;
+    }
+
+    .boundary-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .boundary-title strong {
+      font-size: 17px;
+    }
+
+    .tag {
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #e0ecff;
+      color: #1d4ed8;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .backend .tag {
+      background: #fef3c7;
+      color: #b45309;
+    }
+
+    .boundary-inner {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .boundary-box.backend .boundary-inner {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .wire {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--blue);
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .wire span {
+      display: block;
+      padding: 8px 6px;
+      border: 1px dashed #93c5fd;
+      border-radius: 8px;
+      background: #eff6ff;
+      font-size: 12px;
+    }
+
+    .evolution {
+      min-width: 1180px;
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) 46px minmax(280px, 1fr) 46px minmax(320px, 1.1fr);
+      gap: 0;
+      align-items: stretch;
+      margin: 0 0 20px;
+    }
+
+    .version-card {
+      position: relative;
+      min-height: 260px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-top: 6px solid var(--slate);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .version-card.current {
+      border-color: #93c5fd;
+      border-top-color: var(--blue);
+      background: #f8fbff;
+    }
+
+    .version-card h3 {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 0 0 10px;
+      font-size: 17px;
+    }
+
+    .version-card p {
+      font-size: 13px;
+    }
+
+    .version-card ul {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .version-badge {
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #f1f5f9;
+      color: #475569;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .current .version-badge {
+      background: #dbeafe;
+      color: #1d4ed8;
+    }
+
+    .evolution-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--blue);
+      font-size: 28px;
+      font-weight: 800;
+    }
+
+    .mini-flow {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .mini-node {
+      min-height: 54px;
+      padding: 8px;
+      border: 1px solid #dbe3ee;
+      border-radius: 8px;
+      background: #fbfdff;
+      color: #344054;
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .mini-node strong {
+      display: block;
+      margin-bottom: 3px;
+      color: #17202a;
+      font-size: 12px;
+    }
+
+    .summary-card,
+    .entity,
+    .rule,
+    .group {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .summary-card {
+      border-left: 5px solid var(--slate);
+      min-height: 116px;
+    }
+
+    .summary-card strong,
+    .entity strong,
+    .rule b,
+    .group strong {
+      display: block;
+      color: #17202a;
+      font-size: 15px;
+    }
+
+    .summary-card span,
+    .entity span,
+    .group span {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .blue { border-left-color: var(--blue); }
+    .cyan { border-left-color: var(--cyan); }
+    .green { border-left-color: var(--green); }
+    .amber { border-left-color: var(--amber); }
+    .violet { border-left-color: var(--violet); }
+    .slate { border-left-color: var(--slate); }
+
+    .swimlane-diagram {
+      min-width: 1180px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .swimlane {
+      position: relative;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .swimlane h3 {
+      margin: 0 0 14px;
+      color: #344054;
+      font-size: 15px;
+    }
+
+    .lane-flow-5 {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(180px, 1fr));
+      gap: 34px;
+      align-items: stretch;
+    }
+
+    .lane-flow-6 {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(160px, 1fr));
+      gap: 30px;
+      align-items: stretch;
+    }
+
+    .lane-flow-7 {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(145px, 1fr));
+      gap: 26px;
+      align-items: stretch;
+    }
+
+    .lane-flow-4 {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(210px, 1fr));
+      gap: 38px;
+      align-items: stretch;
+    }
+
+    .lane-card {
+      position: relative;
+      min-height: 88px;
+      padding: 13px 14px;
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--slate);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .lane-card strong {
+      display: block;
+      font-size: 15px;
+      line-height: 1.35;
+    }
+
+    .lane-card span {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .lane-card::after {
+      content: "→";
+      position: absolute;
+      right: -30px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #2563eb;
+      font-size: 28px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .lane-card:last-child::after { display: none; }
+
+    .reuse-note {
+      position: relative;
+      min-height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2px 22px;
+    }
+
+    .reuse-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border: 2px solid #fb923c;
+      border-radius: 8px;
+      background: #fff7ed;
+      color: #9a3412;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .support-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(220px, 1fr));
+      gap: 14px;
+      min-width: 1120px;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 18px;
+    }
+
+    .model-grid {
+      min-width: 1180px;
+      display: grid;
+      grid-template-columns: 260px 300px 300px 300px;
+      gap: 20px;
+      align-items: start;
+    }
+
+    .stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .entity {
+      min-height: 84px;
+      border-left: 5px solid var(--slate);
+    }
+
+    .entity h3 {
+      margin: 0 0 8px;
+      font-size: 15px;
+    }
+
+    .entity ul {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .matrix {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(240px, 1fr));
+      gap: 16px;
+    }
+
+    .group {
+      border-top: 5px solid var(--blue);
+      min-height: 150px;
+    }
+
+    .group ul {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .decision-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(220px, 1fr));
+      gap: 14px;
+    }
+
+    .rule {
+      border-top: 5px solid var(--slate);
+      min-height: 120px;
+    }
+
+    .rule p {
+      font-size: 13px;
+    }
+
+    .file-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(260px, 1fr));
+      gap: 14px;
+    }
+
+    .case-detail {
+      display: grid;
+      gap: 18px;
+    }
+
+    .case-panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    .case-head {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: #f8fafc;
+    }
+
+    .case-head strong {
+      display: block;
+      font-size: 16px;
+    }
+
+    .case-head span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .case-body {
+      padding: 16px;
+      display: grid;
+      gap: 16px;
+    }
+
+    .flow-steps {
+      min-width: 1120px;
+      display: grid;
+      grid-template-columns: repeat(6, minmax(150px, 1fr));
+      gap: 28px;
+      align-items: stretch;
+    }
+
+    .flow-step {
+      position: relative;
+      min-height: 112px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-top: 5px solid var(--slate);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .flow-step::after {
+      content: "→";
+      position: absolute;
+      right: -25px;
+      top: 42%;
+      color: var(--blue);
+      font-size: 24px;
+      font-weight: 800;
+    }
+
+    .flow-step:last-child::after { display: none; }
+
+    .flow-step b {
+      display: block;
+      font-size: 14px;
+    }
+
+    .flow-step p {
+      margin-top: 6px;
+      font-size: 12px;
+    }
+
+    .data-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 14px;
+    }
+
+    .data-card {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfdff;
+    }
+
+    .data-card h3 {
+      margin: 0 0 8px;
+      font-size: 15px;
+    }
+
+    pre {
+      margin: 8px 0 0;
+      padding: 12px;
+      overflow: auto;
+      border: 1px solid #dbe3ee;
+      border-radius: 8px;
+      background: #0f172a;
+      color: #e5edf7;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>CAMClaw 当前代码架构图</h1>
+    <p>这页是按当前代码整理出的架构快照。重点不是画所有依赖，而是把当前可运行链路讲清楚：人工 CAM 和 LLM CAM 最后都会回到 BrowserConsole，再由 CAM services 改 Repository 和刷新 UI。</p>
+  </header>
+
+  <nav>
+    <a href="#overview">总览</a>
+    <a href="#runtime">运行时主链路</a>
+    <a href="#qt">Qt / C++ 当前结构</a>
+    <a href="#python">Python / LLM 后端</a>
+    <a href="#model">对象模型</a>
+    <a href="#cases">已支持用例</a>
+    <a href="#case-flow">典型案例数据流</a>
+    <a href="#rules">边界规则</a>
+    <a href="#files">核心文件</a>
+  </nav>
+
+  <main>
+    <section id="overview">
+      <h2>1. 总览</h2>
+      <p class="note">当前是第三版架构。它保留传统 Qt CAM 软件原有的人工操作链路，同时把 LLM 限定在语义解析和 Pydantic 校验边界内；真正 CAM 执行仍在 Qt / C++ 客户端。</p>
+
+      <div class="diagram">
+        <div class="evolution">
+          <div class="version-card">
+            <h3>第一版：所有入口先过统一适配层 <span class="version-badge">已放弃</span></h3>
+            <p>设想是无论用户点击、Prompt、脚本，未来都先进入一个 Adapter，把输入转成同一种格式，再进入 Console。</p>
+            <div class="mini-flow">
+              <div class="mini-node"><strong>UI 点击</strong>用户操作</div>
+              <div class="mini-node"><strong>Prompt / Script</strong>自动化入口</div>
+              <div class="mini-node"><strong>Adapter</strong>统一格式</div>
+            </div>
+            <ul>
+              <li>问题 1：人工 UI 本来可以直接转发给 <code>BrowserConsole</code>，却被迫多走一层。</li>
+              <li>问题 2：传统软件的原有结构被打散，普通按钮逻辑也要经过 Agent 化抽象。</li>
+              <li>问题 3：轻量 UI 事件和自动化任务混在同一入口，边界变虚。</li>
+              <li>问题 4：后续排查 bug 时，很难判断问题来自 UI、Adapter 还是 Console。</li>
+            </ul>
+          </div>
+
+          <div class="evolution-arrow">→</div>
+
+          <div class="version-card">
+            <h3>第二版：LLM 输出客户端要调用的接口 <span class="version-badge">已放弃</span></h3>
+            <p>这一版收紧了 LLM 的行为边界，但仍然让模型输出类似 command / tool / schema 的执行指令，客户端再按指令调用接口。</p>
+            <div class="mini-flow">
+              <div class="mini-node"><strong>LLM</strong>决定接口名</div>
+              <div class="mini-node"><strong>JSON Command</strong>带 action 和参数</div>
+              <div class="mini-node"><strong>Client</strong>按 command 执行</div>
+            </div>
+            <ul>
+              <li>问题 1：未来客户端接口变多后，LLM 容易选错接口或拼错字段。</li>
+              <li>问题 2：很多能力只在客户端本地，例如刀具库、特征识别、当前树状态、Repository、HumanInLoop。</li>
+              <li>问题 3：LLM 感知不到完整 CAM 状态，却被要求决定具体执行接口，职责过重。</li>
+              <li>问题 4：接口名一旦泄露给 LLM，后续重构 C++ 接口会牵动 prompt 和 schema。</li>
+              <li>问题 5：容易重新滑向“LLM 直接驱动客户端内部实现”，扩展后维护成本高。</li>
+            </ul>
+          </div>
+
+          <div class="evolution-arrow">→</div>
+
+          <div class="version-card current">
+            <h3>第三版：LLM 只输出语义意图，客户端执行 CAM <span class="version-badge">当前代码</span></h3>
+            <p>当前版本把 LLM 当作语义解析器，不让它决定 Qt/C++ 具体接口。Python 后端返回 <code>SemanticIntentPlan</code>，Qt 客户端解析后进入现有 <code>BrowserConsole</code> 和 CAM services。</p>
+            <div class="mini-flow">
+              <div class="mini-node"><strong>LLM</strong>SemanticIntentPlan</div>
+              <div class="mini-node"><strong>Qt Client</strong>decode + resolve</div>
+              <div class="mini-node"><strong>BrowserConsole</strong>CAM services</div>
+            </div>
+            <ul>
+              <li>人工操作继续直接走 <code>CamMainWindow → BrowserConsole</code>，不经过无用 Agent 层。</li>
+              <li>Prompt 只新增一条后端规划链路，确认执行后回接 <code>BrowserConsole</code>。</li>
+              <li>刀具选择、特征识别、目标解析、HumanInLoop 都留在客户端 CAM 执行侧。</li>
+              <li>LLM 输出的是 <code>machine_feature</code>、<code>create_operations</code>、<code>edit_operation</code> 等语义 intent。</li>
+              <li>未来重构 C++ service 或 UI 结构，不必要求 LLM 学会内部接口名。</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="boundary-grid">
+        <div class="boundary-box client">
+          <div class="boundary-title">
+            <strong>Qt / C++ 客户端</strong>
+            <span class="tag">本机 GUI + CAM 执行侧</span>
+          </div>
+          <div class="boundary-inner">
+            <div class="summary-card blue"><strong>UI 层</strong><span>CamMainWindow、BrowserTree、CamViewport、AgentReviewDialog。负责交互和展示。</span></div>
+            <div class="summary-card cyan"><strong>JSON 解码层</strong><span>HttpAgentDraftService 收到后端 JSON，调用 SemanticPlanDraftJsonCodec 解成 SemanticPlanDraft。</span></div>
+            <div class="summary-card violet"><strong>执行调度层</strong><span>SemanticIntentExecutor / BrowserConsole 解析 target，并调用 CAM services。</span></div>
+          </div>
+        </div>
+        <div class="wire"><span>HTTP JSON<br>/v1/agent/plan</span></div>
+        <div class="boundary-box backend">
+          <div class="boundary-title">
+            <strong>Python 后端</strong>
+            <span class="tag">LLM 语义解析侧</span>
+          </div>
+          <div class="boundary-inner">
+            <div class="summary-card amber"><strong>Planner</strong><span>server.py / planner.py 调用 LLM，并用 Pydantic 校验 SemanticIntentPlan。</span></div>
+            <div class="summary-card amber"><strong>返回草案</strong><span>只返回语义计划 JSON，不创建工序、不生成刀轨、不访问 Repository。</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="runtime">
+      <h2>2. 运行时主链路</h2>
+      <p class="note">读图方式：上方是人工 CAM 操作；下方是 LLM CAM 操作。两条链路最终都进入 BrowserConsole，后面共用同一套 CAM service 和 Repository。</p>
+      <div class="diagram">
+        <div class="swimlane-diagram">
+          <div class="swimlane">
+            <h3>人工 CAM 操作</h3>
+            <div class="lane-flow-5">
+              <div class="lane-card blue"><strong>CamMainWindow</strong><span>接收顶部工序按钮、树双击、右键菜单</span></div>
+              <div class="lane-card violet"><strong>BrowserConsole</strong><span>统一调度 create / calculate / delete / visibility</span></div>
+              <div class="lane-card green"><strong>CAM Services</strong><span>OperationService、ToolPathService 执行业务</span></div>
+              <div class="lane-card slate"><strong>Repository</strong><span>保存 Feature / Operation / Toolpath 对象</span></div>
+              <div class="lane-card blue"><strong>BrowserTree / CamViewport</strong><span>刷新树、显示或隐藏刀轨预览</span></div>
+            </div>
+          </div>
+
+          <div class="reuse-note">
+            <span class="reuse-pill">Agent 确认执行后回接 BrowserConsole，不绕过 Console 直连 Service</span>
+          </div>
+
+          <div class="swimlane">
+            <h3>LLM CAM 操作</h3>
+            <div class="lane-flow-7">
+              <div class="lane-card cyan"><strong>AgentReviewDialog</strong><span>输入 prompt，生成草案，用户确认执行</span></div>
+              <div class="lane-card cyan"><strong>HttpAgentDraftService</strong><span>客户端发起 POST /v1/agent/plan，并接收响应 body</span></div>
+              <div class="lane-card amber"><strong>Python Backend</strong><span>后端调用 LLM + Pydantic 校验，返回 JSON 草案</span></div>
+              <div class="lane-card cyan"><strong>SemanticPlanDraftJsonCodec</strong><span>客户端解析后端 JSON，形成 SemanticPlanDraft</span></div>
+              <div class="lane-card violet"><strong>SemanticIntentExecutor</strong><span>顺序执行 intents，必要时触发 HumanInLoop</span></div>
+              <div class="lane-card violet"><strong>BrowserConsole</strong><span>进入人工 CAM 相同执行入口</span></div>
+              <div class="lane-card green"><strong>Repository / UI</strong><span>更新 CamObject，并刷新 BrowserTree / CamViewport</span></div>
+            </div>
+          </div>
+
+          <div class="support-strip">
+            <div class="summary-card cyan"><strong>HumanInLoopService</strong><span>目标不唯一时让用户选择，不绑定具体业务。</span></div>
+            <div class="summary-card green"><strong>FeatureRecognitionService</strong><span>当前用字符串 mock 识别：孔 / 型腔 / 平面。</span></div>
+            <div class="summary-card green"><strong>ToolSelectionPolicy</strong><span>解析 larger_available_tool / smaller_available_tool。</span></div>
+            <div class="summary-card slate"><strong>trace_id</strong><span>贯穿草案生成、执行结果和 trace_events。</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="qt">
+      <h2>3. Qt / C++ 当前结构</h2>
+      <p class="note">这里画当前代码的组合关系。Console 只保留 BrowserConsole；Operation / ToolPath / Feature 都是 service，不叫 console。</p>
+      <div class="diagram">
+        <div class="model-grid">
+          <div class="entity blue">
+            <h3>CamMainWindow</h3>
+            <ul>
+              <li>Qt 侧组合根</li>
+              <li>创建 Repository</li>
+              <li>创建 BrowserConsole</li>
+              <li>创建 SemanticIntentExecutor</li>
+              <li>持有 HttpAgentDraftService</li>
+            </ul>
+          </div>
+
+          <div class="stack">
+            <div class="entity blue"><strong>BrowserTree</strong><span>当前是 QTreeWidget 包装层；未来可拆 BrowserTreeItem / OperationItem / FrameItem。</span></div>
+            <div class="entity blue"><strong>CamViewport</strong><span>显示几何 mock、工序预览、刀轨显隐状态。</span></div>
+            <div class="entity blue"><strong>AgentReviewDialog</strong><span>草案审核弹窗，展示 prompt、草案、参数、结果、trace。</span></div>
+          </div>
+
+          <div class="stack">
+            <div class="entity violet"><strong>BrowserConsole</strong><span>当前唯一 Console。负责把 UI 事件和 Agent intent 路由到 CAM services。</span></div>
+            <div class="entity violet"><strong>SemanticIntentExecutor</strong><span>执行 machine_feature、create_operations、edit_operation、regenerate_toolpath、set_toolpath_visibility。</span></div>
+            <div class="entity violet"><strong>HumanInLoopService</strong><span>当目标 query 命中多个对象时，弹窗让用户澄清。</span></div>
+          </div>
+
+          <div class="stack">
+            <div class="entity green"><strong>OperationService</strong><span>通过 OperationFactory / OperationCatalog 创建工序。</span></div>
+            <div class="entity green"><strong>ToolPathService</strong><span>按 operation_id 生成或更新对应 toolpath。</span></div>
+            <div class="entity green"><strong>FeatureRecognitionService</strong><span>根据所选 feature mock 出匹配 operation_type。</span></div>
+            <div class="entity green"><strong>ToolSelectionPolicy</strong><span>在 C++ 侧选择可用刀具，不让 LLM 直接决定最终刀号。</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="python">
+      <h2>4. Python / LLM 后端</h2>
+      <p class="note">Python 后端是语义解析服务。它不创建工序、不生成刀轨、不访问 Qt Repository。</p>
+      <div class="diagram">
+        <div class="swimlane-diagram">
+          <div class="swimlane">
+            <h3>POST /v1/agent/plan</h3>
+            <div class="lane-flow-5">
+              <div class="lane-card amber"><strong>server.py</strong><span>接收 JSON 请求，调用 AgentPlanRequestModel 校验</span></div>
+              <div class="lane-card amber"><strong>planner.py</strong><span>组装 response_contract，调用 LLM</span></div>
+              <div class="lane-card amber"><strong>llm_client.py</strong><span>OpenAI-compatible chat completions</span></div>
+              <div class="lane-card amber"><strong>semantic_schemas.py</strong><span>Pydantic 校验 SemanticIntentPlan</span></div>
+              <div class="lane-card amber"><strong>draft JSON</strong><span>返回 schema_version、intents、trace_id、status</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="entity amber">
+          <h3>AgentPlanRequest</h3>
+          <ul>
+            <li><code>trace_id</code>：一次 Agent 请求的追踪 ID</li>
+            <li><code>user_request</code>：用户 prompt</li>
+            <li><code>target_object_id</code>：Qt 当前选择对象 ID</li>
+            <li><code>target_display_name</code>：当前选择对象显示名</li>
+            <li><code>rejection_reason</code>：拒绝草案后的再生成反馈</li>
+          </ul>
+        </div>
+        <div class="entity amber">
+          <h3>SemanticIntentPlan</h3>
+          <ul>
+            <li><code>schema_version = "1"</code></li>
+            <li><code>intents[]</code>：有序动作序列</li>
+            <li>支持多意图：先 edit_operation，再 regenerate_toolpath</li>
+            <li>LLM 输出必须通过 Pydantic 校验</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="model">
+      <h2>5. 当前对象模型</h2>
+      <p class="note">当前 Repository 保存的是 CamObject。真实几何和刀轨仍是 mock，但粒度已经按 object_id / operation_id / toolpath_id 走，而不是按 operation_type 共用一套刀轨。</p>
+      <div class="diagram">
+        <div class="model-grid">
+          <div class="entity slate">
+            <h3>Repository</h3>
+            <ul>
+              <li><code>save</code></li>
+              <li><code>update</code></li>
+              <li><code>remove</code></li>
+              <li><code>objectsByType</code></li>
+            </ul>
+          </div>
+          <div class="entity green">
+            <h3>Feature</h3>
+            <ul>
+              <li>孔组：匹配 drilling</li>
+              <li>型腔：匹配 pocket</li>
+              <li>平面：匹配 finishing</li>
+            </ul>
+          </div>
+          <div class="entity green">
+            <h3>Operation</h3>
+            <ul>
+              <li>拥有自己的 <code>operation_id</code></li>
+              <li>记录 <code>operation_type</code></li>
+              <li>记录 <code>tool_id</code>、stepover 等参数</li>
+              <li>toolpath_status 表示是否已计算</li>
+            </ul>
+          </div>
+          <div class="entity green">
+            <h3>Toolpath</h3>
+            <ul>
+              <li>拥有自己的 <code>toolpath_id</code></li>
+              <li><code>parent_object_id = operation_id</code></li>
+              <li>按 operation_id 生成，不按 operation_type 共享</li>
+              <li>visible 控制显隐</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="cases">
+      <h2>6. 当前已支持的 Agent 用例</h2>
+      <p class="note">这些用例是当前架构要稳定支撑的主路径。</p>
+      <div class="matrix">
+        <div class="group">
+          <strong>根据所选特征加工</strong>
+          <ul>
+            <li>选择孔组：帮我加工这个工件</li>
+            <li>选择型腔：帮我加工这个工件</li>
+            <li>选择平面：帮我加工这个平面</li>
+            <li>自动创建匹配工序并生成刀轨</li>
+          </ul>
+        </div>
+        <div class="group">
+          <strong>批量创建工序</strong>
+          <ul>
+            <li>创建 20 个钻孔工序</li>
+            <li>创建 5 个钻孔、3 个型腔铣、4 个平面铣</li>
+            <li>默认只创建工序，不自动生成刀轨</li>
+          </ul>
+        </div>
+        <div class="group">
+          <strong>刀轨显隐</strong>
+          <ul>
+            <li>显示所有刀轨</li>
+            <li>隐藏所有刀轨</li>
+            <li>隐藏型腔铣刀轨，显示钻孔刀轨</li>
+            <li>按 toolpath query 执行</li>
+          </ul>
+        </div>
+        <div class="group">
+          <strong>编辑并重新计算</strong>
+          <ul>
+            <li>打开树上的型腔铣工序</li>
+            <li>刀具改大一些</li>
+            <li>步进改小一些</li>
+            <li>再重新计算刀轨</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="case-flow">
+      <h2>7. 典型案例数据流</h2>
+      <p class="note">这一节用三个具体问题说明任务拆解边界：LLM 到 SemanticIntentPlan 为止；Qt 解码、解析目标、调用 BrowserConsole；BrowserConsole 再进入 CAM services。</p>
+      <div class="case-detail">
+        <div class="case-panel">
+          <div class="case-head">
+            <strong>案例 1：选择孔组后输入“帮我加工这个工件”</strong>
+            <span>目标：根据当前选择的几何特征，自动创建钻孔工序，并生成钻孔刀轨。</span>
+          </div>
+          <div class="case-body">
+            <div class="diagram">
+              <div class="flow-steps">
+                <div class="flow-step blue"><b>1. Qt 收集上下文</b><p>用户在 BrowserTree 选中孔组，打开 AgentReviewDialog。</p></div>
+                <div class="flow-step amber"><b>2. 请求 Python</b><p>HttpAgentDraftService 发送 prompt、target_object_id、target_display_name。</p></div>
+                <div class="flow-step amber"><b>3. LLM 语义解析</b><p>LLM 不判断最终 CAM 细节，只输出 machine_feature intent。</p></div>
+                <div class="flow-step violet"><b>4. Qt 解码草案</b><p>SemanticPlanDraftJsonCodec 解成 SemanticPlanDraft，用户确认。</p></div>
+                <div class="flow-step violet"><b>5. 执行 intent</b><p>SemanticIntentExecutor 把 objects target 交给 BrowserConsole.machineFeature。</p></div>
+                <div class="flow-step green"><b>6. CAM 执行</b><p>FeatureRecognitionService 识别 drilling，OperationService 创建工序，ToolPathService 生成刀轨。</p></div>
+              </div>
+            </div>
+
+            <div class="data-grid">
+              <div class="data-card">
+                <h3>Qt 发给 Python 的请求快照</h3>
+                <pre>{
+  "trace_id": "trace_qt_agent_xxx",
+  "user_request": "帮我加工这个工件",
+  "target_object_id": "feature_holes_001",
+  "target_display_name": "孔组 A",
+  "rejection_reason": ""
+}</pre>
+              </div>
+              <div class="data-card">
+                <h3>LLM 返回并经 Pydantic 校验的语义计划</h3>
+                <pre>{
+  "schema_version": "1",
+  "intents": [
+    {
+      "id": "intent_1",
+      "intent": "machine_feature",
+      "target": {
+        "kind": "objects",
+        "object_ids": ["feature_holes_001"]
+      },
+      "auto_generate_toolpath": true
+    }
+  ]
+}</pre>
+              </div>
+            </div>
+
+            <div class="data-grid">
+              <div class="data-card">
+                <h3>客户端执行拆解</h3>
+                <ul>
+                  <li><code>SemanticIntentExecutor</code> 读取 intent = <code>machine_feature</code>。</li>
+                  <li>target 是 objects，直接得到 <code>feature_holes_001</code>。</li>
+                  <li>调用 <code>BrowserConsole.machineFeature(["feature_holes_001"], true)</code>。</li>
+                  <li><code>FeatureRecognitionService</code> 根据“holes / 孔”识别为 <code>drilling</code>。</li>
+                </ul>
+              </div>
+              <div class="data-card">
+                <h3>最终状态变化</h3>
+                <ul>
+                  <li>Repository 新增 <code>op_drilling_feature_holes_001</code>。</li>
+                  <li>Repository 新增 <code>toolpath_op_drilling_feature_holes_001</code>。</li>
+                  <li>BrowserTree 刷新出钻孔工序和钻孔刀轨。</li>
+                  <li>CamViewport 显示钻孔刀轨预览。</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="case-panel">
+          <div class="case-head">
+            <strong>案例 2：输入“帮我创建5个钻孔工序，3个型腔铣工序，4个平面铣工序”</strong>
+            <span>目标：批量创建工序节点，但不自动生成刀轨。</span>
+          </div>
+          <div class="case-body">
+            <div class="diagram">
+              <div class="flow-steps">
+                <div class="flow-step blue"><b>1. Qt 收集 prompt</b><p>这个命令不一定依赖当前选择几何，target 可以为空。</p></div>
+                <div class="flow-step amber"><b>2. LLM 拆数量</b><p>把一句自然语言拆成 create_operations 的 items 数组。</p></div>
+                <div class="flow-step amber"><b>3. Pydantic 校验</b><p>operation_type 必须是 drilling / pocket / finishing，count 是整数。</p></div>
+                <div class="flow-step violet"><b>4. Qt 解码</b><p>SemanticPlanDraftJsonCodec 得到 create_items。</p></div>
+                <div class="flow-step violet"><b>5. 执行 intent</b><p>SemanticIntentExecutor 调用 BrowserConsole.createOperations。</p></div>
+                <div class="flow-step green"><b>6. 创建节点</b><p>OperationFactory 循环创建 12 个 operation，不调用 ToolPathService。</p></div>
+              </div>
+            </div>
+
+            <div class="data-grid">
+              <div class="data-card">
+                <h3>LLM 的任务拆解结果</h3>
+                <pre>{
+  "schema_version": "1",
+  "intents": [
+    {
+      "id": "intent_1",
+      "intent": "create_operations",
+      "items": [
+        { "operation_type": "drilling", "count": 5 },
+        { "operation_type": "pocket", "count": 3 },
+        { "operation_type": "finishing", "count": 4 }
+      ],
+      "auto_generate_toolpath": false
+    }
+  ]
+}</pre>
+              </div>
+              <div class="data-card">
+                <h3>为什么不生成刀轨</h3>
+                <ul>
+                  <li>用户说的是“创建工序”，不是“创建工序并计算刀轨”。</li>
+                  <li>所以 LLM 设置 <code>auto_generate_toolpath: false</code>。</li>
+                  <li>Qt 执行时只调用 <code>OperationService.createOperation</code>。</li>
+                  <li>后续用户可以手动右键计算，或再通过 Agent 要求计算。</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="data-grid">
+              <div class="data-card">
+                <h3>客户端执行拆解</h3>
+                <ul>
+                  <li>遍历 items。</li>
+                  <li>drilling 循环 5 次，pocket 循环 3 次，finishing 循环 4 次。</li>
+                  <li>每次通过 <code>OperationCatalog</code> 找默认参数和显示名。</li>
+                  <li>通过 <code>OperationFactory</code> 生成唯一 operation_id。</li>
+                </ul>
+              </div>
+              <div class="data-card">
+                <h3>最终状态变化</h3>
+                <ul>
+                  <li>BrowserTree 新增 12 个工序节点。</li>
+                  <li>每个 operation 都有自己的 object_id 和参数。</li>
+                  <li>不会新增 toolpath 节点。</li>
+                  <li>CamViewport 不显示新刀轨，因为还没计算。</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="case-panel">
+          <div class="case-head">
+            <strong>案例 3：输入“帮我打开树上的型腔铣工序，把刀具改大一些，再进行计算”</strong>
+            <span>目标：复合任务拆成两个 intent：先编辑工序，再重新计算刀轨。</span>
+          </div>
+          <div class="case-body">
+            <div class="diagram">
+              <div class="flow-steps">
+                <div class="flow-step blue"><b>1. Qt 发送请求</b><p>prompt 里没有精确 ID，只有“树上的型腔铣工序”。</p></div>
+                <div class="flow-step amber"><b>2. LLM 拆多意图</b><p>先 edit_operation，再 regenerate_toolpath，不生成组合 intent。</p></div>
+                <div class="flow-step amber"><b>3. LLM 保留相对表达</b><p>刀具改大一些输出 larger_available_tool，不选最终 tool_id。</p></div>
+                <div class="flow-step violet"><b>4. Qt 解析 target</b><p>query target 匹配 operation_type=pocket 的工序。</p></div>
+                <div class="flow-step violet"><b>5. 必要时澄清</b><p>如果匹配多个型腔铣工序，HumanInLoopService 弹窗让用户选。</p></div>
+                <div class="flow-step green"><b>6. 执行并重算</b><p>ToolSelectionPolicy 选更大刀具；随后 ToolPathService 按 ref 重新计算。</p></div>
+              </div>
+            </div>
+
+            <div class="data-grid">
+              <div class="data-card">
+                <h3>LLM 拆出的 SemanticIntentPlan</h3>
+                <pre>{
+  "schema_version": "1",
+  "intents": [
+    {
+      "id": "intent_1",
+      "intent": "edit_operation",
+      "target": {
+        "kind": "query",
+        "object_type": "operation",
+        "scope": "matching",
+        "filters": { "operation_type": "pocket" }
+      },
+      "updates": [
+        {
+          "parameter": "tool_id",
+          "value": null,
+          "expression": "larger_available_tool"
+        }
+      ],
+      "open_editor": true
+    },
+    {
+      "id": "intent_2",
+      "intent": "regenerate_toolpath",
+      "target": {
+        "kind": "ref",
+        "ref": "previous.primary_object_ids"
+      }
+    }
+  ]
+}</pre>
+              </div>
+              <div class="data-card">
+                <h3>LLM 做到哪一步</h3>
+                <ul>
+                  <li>识别“型腔铣”对应 <code>operation_type = pocket</code>。</li>
+                  <li>识别“刀具改大一些”对应 <code>larger_available_tool</code>。</li>
+                  <li>识别“再进行计算”需要第二个 <code>regenerate_toolpath</code> intent。</li>
+                  <li>不直接调用 C++，不直接决定 <code>tool_016</code>。</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="data-grid">
+              <div class="data-card">
+                <h3>客户端执行拆解</h3>
+                <ul>
+                  <li><code>resolveTarget(query)</code> 查找 operation_type 匹配 pocket 的工序。</li>
+                  <li>如果多个匹配，进入 <code>HumanInLoopService</code>。</li>
+                  <li><code>BrowserConsole.updateOperations</code> 应用参数更新。</li>
+                  <li><code>ParameterExpressionResolver</code> 把 larger_available_tool 交给 <code>ToolSelectionPolicy</code>。</li>
+                  <li>上一 intent 的 primary_object_ids 被保存到执行上下文。</li>
+                  <li>第二个 intent 用 <code>ref: previous.primary_object_ids</code> 找到刚编辑的工序并重新计算。</li>
+                </ul>
+              </div>
+              <div class="data-card">
+                <h3>最终状态变化</h3>
+                <ul>
+                  <li>例如当前刀具是 <code>tool_010</code>，更大刀具解析为 <code>tool_016</code>。</li>
+                  <li>operation 的 <code>tool_id</code> 被更新。</li>
+                  <li>对应 operation_id 的 toolpath 被重新生成或更新。</li>
+                  <li>BrowserTree 和 CamViewport 刷新，显示新的刀轨状态。</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="rules">
+      <h2>8. 当前边界规则</h2>
+      <div class="decision-grid">
+        <div class="rule"><b>Console 规则</b><p>当前只有 BrowserConsole。它对应 BrowserTree / 工序树相关 UI 协调，不再引入 OperationConsole / ToolPathConsole / FeatureConsole。</p></div>
+        <div class="rule"><b>Service 规则</b><p>OperationService、ToolPathService、FeatureRecognitionService、ToolSelectionPolicy 是业务服务，不是控制台。</p></div>
+        <div class="rule"><b>LLM 规则</b><p>LLM 只输出 SemanticIntentPlan，不输出 Qt slots、C++ 方法名、Repository 操作或最终刀号。</p></div>
+        <div class="rule"><b>刀具规则</b><p>Python 不读取 mock 刀具库；更大 / 更小刀具由 C++ ToolSelectionPolicy 解析为可用刀具。</p></div>
+        <div class="rule"><b>目标规则</b><p>target 使用 objects / query / ref。current selection 是请求上下文，不是特殊目标类型。</p></div>
+        <div class="rule"><b>多意图规则</b><p>复合需求拆成 intents[] 顺序执行，例如 edit_operation 后 regenerate_toolpath。</p></div>
+        <div class="rule"><b>HumanInLoop</b><p>目标 query 不唯一时进入澄清弹窗，由用户选择具体对象，不和具体业务强绑定。</p></div>
+        <div class="rule"><b>遗留规则</b><p>AgentWorkflowService 仍在代码里，但当前 Qt 主链路主要不走它，更像旧 roughing workflow 测试遗留。</p></div>
+      </div>
+    </section>
+
+    <section id="files">
+      <h2>9. 核心文件索引</h2>
+      <div class="file-grid">
+        <div class="entity blue"><strong>qt/src/CamMainWindow.cpp</strong><span>Qt 组合根、按钮事件、Agent 弹窗入口。</span></div>
+        <div class="entity blue"><strong>qt/src/AgentReviewDialog.cpp</strong><span>Agent 草案生成、审核、确认执行 UI。</span></div>
+        <div class="entity blue"><strong>qt/src/AgentDraftService.cpp</strong><span>Qt 侧 HTTP 请求 Python 后端，并解码草案。</span></div>
+        <div class="entity violet"><strong>src/BrowserConsole.cpp</strong><span>人工和 Agent 的统一 CAM 调度入口。</span></div>
+        <div class="entity violet"><strong>src/SemanticIntentPlan.cpp</strong><span>SemanticIntent 解码、执行、目标解析、HumanInLoop 接入。</span></div>
+        <div class="entity green"><strong>src/AgentWorkflowService.cpp</strong><span>Repository、OperationCatalog、OperationFactory、OperationService、ToolPathService。</span></div>
+        <div class="entity amber"><strong>python_backend/camclaw_agent_backend/server.py</strong><span>Python HTTP server 入口。</span></div>
+        <div class="entity amber"><strong>python_backend/camclaw_agent_backend/planner.py</strong><span>调用 LLM，Pydantic 校验后返回草案。</span></div>
+        <div class="entity amber"><strong>python_backend/camclaw_agent_backend/semantic_schemas.py</strong><span>AgentPlanRequest 和 SemanticIntentPlan 的强类型 schema。</span></div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

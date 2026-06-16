@@ -8,7 +8,6 @@ from pydantic import ValidationError
 
 from .contracts import semantic_intent_plan_json_contract
 from .semantic_schemas import SemanticIntentPlan
-from .tool_library import ToolLibrary
 
 
 class LlmPlanningClient(Protocol):
@@ -44,10 +43,8 @@ class AgentPlanner:
     def __init__(
         self,
         llm_client: LlmPlanningClient,
-        tool_library: ToolLibrary | None = None,
     ):
         self._llm_client = llm_client
-        self._tool_library = tool_library or ToolLibrary.from_file()
 
     def create_draft(self, planner_input: PlannerInput) -> Dict[str, object]:
         plan_json = self._llm_client.create_plan_json(
@@ -55,7 +52,7 @@ class AgentPlanner:
             user_request=planner_input.user_request,
             target_object_id=planner_input.target_object_id,
             rejection_reason=planner_input.rejection_reason,
-            response_contract=semantic_intent_plan_json_contract(self._tool_library.to_planning_context()),
+            response_contract=semantic_intent_plan_json_contract(),
         )
         parsed = self._parse_json_object(plan_json)
         try:

@@ -4,6 +4,76 @@
 
 namespace camclaw {
 
+static std::vector<std::string> availableToolIdsForOperation(const CamObject& operation)
+{
+    std::vector<std::string> tools;
+    const std::map<std::string, std::string>::const_iterator operation_type = operation.attributes.find("operation_type");
+    if (operation_type != operation.attributes.end() && operation_type->second == "drilling") {
+        tools.push_back("drill_004");
+        tools.push_back("drill_006");
+        tools.push_back("drill_008");
+        return tools;
+    }
+
+    tools.push_back("tool_006");
+    tools.push_back("tool_010");
+    tools.push_back("tool_016");
+    return tools;
+}
+
+static std::string defaultToolIdForOperation(const CamObject& operation)
+{
+    const std::map<std::string, std::string>::const_iterator operation_type = operation.attributes.find("operation_type");
+    if (operation_type != operation.attributes.end() && operation_type->second == "drilling") {
+        return "drill_006";
+    }
+    return "tool_010";
+}
+
+static std::string adjacentToolId(const CamObject& operation, const std::string& current_tool_id, int direction)
+{
+    const std::vector<std::string> tools = availableToolIdsForOperation(operation);
+    if (tools.empty()) {
+        return current_tool_id;
+    }
+
+    std::size_t current_index = tools.size();
+    for (std::size_t index = 0; index < tools.size(); ++index) {
+        if (tools[index] == current_tool_id) {
+            current_index = index;
+            break;
+        }
+    }
+    if (current_index == tools.size()) {
+        return defaultToolIdForOperation(operation);
+    }
+
+    if (direction > 0 && current_index + 1u < tools.size()) {
+        return tools[current_index + 1u];
+    }
+    if (direction < 0 && current_index > 0u) {
+        return tools[current_index - 1u];
+    }
+    return tools[current_index];
+}
+
+static bool isLargerToolExpression(const std::string& expression)
+{
+    return expression == "larger"
+        || expression == "larger_available_tool"
+        || expression == "larger_tool"
+        || expression == "大一些";
+}
+
+static bool isSmallerToolExpression(const std::string& expression)
+{
+    return expression == "smaller"
+        || expression == "smaller_available_tool"
+        || expression == "smaller_tool"
+        || expression == "小一些"
+        || expression == "更小";
+}
+
 BrowserConsole::BrowserConsole(Repository& repository, BrowserConsoleUi* ui)
     : repository_(repository),
       ui_(ui),
@@ -244,18 +314,16 @@ std::string FeatureRecognitionService::recognizeOperationType(const CamObject& f
 std::string ToolSelectionPolicy::resolveRelativeToolId(const CamObject& operation, const std::string& expression) const
 {
     const std::map<std::string, std::string>::const_iterator current = operation.attributes.find("tool_id");
-    if (expression == "larger"
-        || expression == "larger_available_tool"
-        || expression == "larger_tool"
-        || expression == "大一些") {
-        if (current != operation.attributes.end() && current->second == "tool_010") {
-            return "tool_016";
-        }
-        if (current != operation.attributes.end()) {
-            return current->second;
-        }
+    const std::string current_tool_id = current == operation.attributes.end()
+        ? defaultToolIdForOperation(operation)
+        : current->second;
+    if (isLargerToolExpression(expression)) {
+        return adjacentToolId(operation, current_tool_id, 1);
     }
-    return current == operation.attributes.end() ? std::string() : current->second;
+    if (isSmallerToolExpression(expression)) {
+        return adjacentToolId(operation, current_tool_id, -1);
+    }
+    return current_tool_id;
 }
 
 ParameterExpressionResolver::ParameterExpressionResolver(const ToolSelectionPolicy& tool_selection_policy)

@@ -11,6 +11,7 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QLabel>
+#include <QTabWidget>
 
 namespace camclaw {
 
@@ -83,6 +84,7 @@ private:
     QLabel* result_status_label_;
     QPlainTextEdit* result_body_edit_;
     QPlainTextEdit* trace_edit_;
+    QTabWidget* tabs_;
     QPlainTextEdit* rejection_reason_edit_;
     QPushButton* confirm_button_;
     QPushButton* generate_button_;
