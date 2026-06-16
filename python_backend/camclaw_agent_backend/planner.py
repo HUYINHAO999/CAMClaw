@@ -308,6 +308,17 @@ class AgentPlanner:
         explicit_operation_type = str(inputs.get("operation_type", ""))
         request_operation_types = self._operation_type_filters_for_visibility(planner_input.user_request)
         request_operation_type = request_operation_types[0] if len(request_operation_types) == 1 else ""
+        if explicit_operation_type or str(inputs.get("scope", "")) == "operation_type":
+            if not request_operation_types:
+                raise PlannerError(
+                    "missing_operation_type",
+                    "Toolpath visibility by operation type requires the user request to name a machining operation type.",
+                )
+            if len(request_operation_types) > 1 and explicit_operation_type not in request_operation_types:
+                raise PlannerError(
+                    "operation_type_not_in_prompt",
+                    "Toolpath visibility operation type must match a machining operation type named in the user request.",
+                )
         operation_type = request_operation_type or explicit_operation_type
         scope = "operation_type" if operation_type else self._required_string(inputs, "scope")
         if visibility not in {"show", "hide", "toggle"}:

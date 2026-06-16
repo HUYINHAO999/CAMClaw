@@ -497,6 +497,28 @@ class AgentPlannerTests(unittest.TestCase):
         self.assertEqual("pocket", inputs["operation_type"])
         self.assertEqual("toolpath_op_drilling_feature_holes_001", inputs["target_object_id"])
 
+    def test_visibility_by_operation_type_requires_operation_keyword_in_prompt(self):
+        llm = FakeLlmClient(
+            "{"
+            '"command_id":"browser.setToolpathVisibility",'
+            '"schema_id":"browser.setToolpathVisibility.v1",'
+            '"inputs":{"visibility":"hide","scope":"operation_type","operation_type":"","toolpath_ids":""}'
+            "}"
+        )
+        planner = AgentPlanner(llm)
+
+        with self.assertRaises(PlannerError) as raised:
+            planner.create_draft(
+                PlannerInput(
+                    trace_id="trace_visibility_missing_operation_keyword",
+                    user_request="帮我隐藏刀轨",
+                    target_object_id="toolpath_op_roughing_3",
+                    target_display_name="型腔铣刀轨",
+                )
+            )
+
+        self.assertEqual("missing_operation_type", raised.exception.error_code)
+
     def test_builds_action_sequence_for_multiple_batch_creates(self):
         llm = FakeLlmClient(
             "{"
