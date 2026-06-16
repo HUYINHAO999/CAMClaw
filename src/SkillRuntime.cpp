@@ -98,6 +98,25 @@ std::string resolveRelativeParameterValue(
     return formatNumber(parsed * 0.5);
 }
 
+void appendToolpathsForOperation(
+    const Repository& repository,
+    const CamObject& operation,
+    std::vector<std::string>& target_ids)
+{
+    const std::map<std::string, std::string>::const_iterator toolpath_id = operation.attributes.find("toolpath_id");
+    if (toolpath_id != operation.attributes.end() && repository.exists(toolpath_id->second)) {
+        target_ids.push_back(toolpath_id->second);
+        return;
+    }
+
+    const std::vector<CamObject> toolpaths = repository.objectsByType(ObjectType::Toolpath);
+    for (std::size_t index = 0u; index < toolpaths.size(); ++index) {
+        if (toolpaths[index].parent_object_id == operation.object_id) {
+            target_ids.push_back(toolpaths[index].object_id);
+        }
+    }
+}
+
 } // namespace
 
 CommandRegistry CommandRegistry::browserDefaults()
@@ -440,11 +459,9 @@ ConsoleCommandResult BrowserConsole::setToolpathVisibility(const ConsoleCommandR
         target_ids.clear();
         for (std::size_t index = 0u; index < operations.size(); ++index) {
             const std::map<std::string, std::string>::const_iterator operation_type = operations[index].attributes.find("operation_type");
-            const std::map<std::string, std::string>::const_iterator toolpath_id = operations[index].attributes.find("toolpath_id");
             if (operation_type != operations[index].attributes.end()
-                && toolpath_id != operations[index].attributes.end()
                 && operationTypeMatchesFilter(operation_type->second, operation_type_filter)) {
-                target_ids.push_back(toolpath_id->second);
+                appendToolpathsForOperation(repository_, operations[index], target_ids);
             }
         }
     }

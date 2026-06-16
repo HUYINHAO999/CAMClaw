@@ -181,6 +181,38 @@ static int visibility_by_operation_type_hides_matching_operation_toolpaths_only(
     return EXIT_SUCCESS;
 }
 
+static int visibility_by_operation_type_uses_toolpath_parent_when_operation_attribute_missing()
+{
+    camclaw::Repository repository;
+    camclaw::CamObject pocket_operation("op_pocket_feature_001", camclaw::ObjectType::Operation, "型腔铣");
+    pocket_operation.attributes["operation_type"] = "pocket";
+    repository.save(pocket_operation);
+    camclaw::CamObject pocket_toolpath("toolpath_op_pocket_feature_001", camclaw::ObjectType::Toolpath, "型腔铣刀轨");
+    pocket_toolpath.parent_object_id = "op_pocket_feature_001";
+    pocket_toolpath.attributes["visible"] = "true";
+    repository.save(pocket_toolpath);
+
+    camclaw::BrowserConsole browser_console(repository);
+    camclaw::ActionGateway gateway(repository, browser_console);
+
+    camclaw::ConsoleCommandRequest request;
+    request.command_id = "browser.setToolpathVisibility";
+    request.source = "agent";
+    request.trace_id = "trace_visibility_parent_link";
+    request.target_object_id = "toolpath_op_pocket_feature_001";
+    request.args["visibility"] = "hide";
+    request.args["scope"] = "operation_type";
+    request.args["operation_type"] = "pocket";
+
+    const camclaw::ConsoleCommandResult result = gateway.dispatch(request);
+
+    REQUIRE_TRUE(result.ok);
+    REQUIRE_EQ(std::string("toolpath_op_pocket_feature_001"), result.primary_object_id);
+    REQUIRE_EQ(std::string("false"), repository.get("toolpath_op_pocket_feature_001").attributes["visible"]);
+
+    return EXIT_SUCCESS;
+}
+
 int main()
 {
     int status = controlled_script_can_use_registered_console_command();
@@ -209,6 +241,11 @@ int main()
     }
 
     status = visibility_by_operation_type_hides_matching_operation_toolpaths_only();
+    if (status != EXIT_SUCCESS) {
+        return status;
+    }
+
+    status = visibility_by_operation_type_uses_toolpath_parent_when_operation_attribute_missing();
     if (status != EXIT_SUCCESS) {
         return status;
     }
