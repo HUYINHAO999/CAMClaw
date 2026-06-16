@@ -306,7 +306,9 @@ class AgentPlanner:
     def _build_toolpath_visibility_inputs(self, inputs: Dict[str, object], planner_input: PlannerInput) -> Dict[str, str]:
         visibility = self._required_string(inputs, "visibility")
         explicit_operation_type = str(inputs.get("operation_type", ""))
-        operation_type = explicit_operation_type or self._operation_type_filter_for_visibility(planner_input.user_request)
+        request_operation_types = self._operation_type_filters_for_visibility(planner_input.user_request)
+        request_operation_type = request_operation_types[0] if len(request_operation_types) == 1 else ""
+        operation_type = request_operation_type or explicit_operation_type
         scope = "operation_type" if operation_type else self._required_string(inputs, "scope")
         if visibility not in {"show", "hide", "toggle"}:
             raise PlannerError("invalid_llm_response", "Toolpath visibility must be show, hide, or toggle.")
