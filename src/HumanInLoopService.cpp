@@ -59,6 +59,17 @@ ClarificationResumeResult HumanInLoopService::submitResponse(const Clarification
         result.message = edit_result.message;
         return result;
     }
+    if (target_field == "target_object_id") {
+        const DraftEditResult scope_result = draft.setStepInput(
+            found->second.request.blocked_action_index,
+            "scope",
+            "selected");
+        if (scope_result.status != DraftEditStatus::Edited) {
+            result.error_code = "resume_failed";
+            result.message = scope_result.message;
+            return result;
+        }
+    }
 
     pending_.erase(found);
     result.ok = true;

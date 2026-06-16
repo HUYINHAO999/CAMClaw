@@ -111,6 +111,7 @@ static int human_loop_merges_last_candidate_into_draft_target()
 
     REQUIRE_TRUE(result.ok);
     REQUIRE_EQ(std::string("op_pocket_002"), result.resumed_draft.stepAt(0).inputValue("target_object_id"));
+    REQUIRE_EQ(std::string("selected"), result.resumed_draft.stepAt(0).inputValue("scope"));
     REQUIRE_EQ(0u, service.pendingRequests().size());
 
     return EXIT_SUCCESS;
