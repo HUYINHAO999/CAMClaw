@@ -19,6 +19,7 @@ add_library(camclaw_core
     src/AgentWorkflowService.cpp
     src/HumanInLoopService.cpp
     src/PlanDraftFactory.cpp
+    src/SemanticIntentPlan.cpp
     src/SkillRuntime.cpp
     src/TargetResolver.cpp
     src/TraceService.cpp
@@ -162,6 +163,17 @@ target_link_libraries(camclaw_human_in_loop_tests
 )
 
 add_test(NAME camclaw_human_in_loop_tests COMMAND camclaw_human_in_loop_tests)
+
+add_executable(camclaw_semantic_intent_tests
+    tests/test_semantic_intent.cpp
+)
+
+target_link_libraries(camclaw_semantic_intent_tests
+    PRIVATE
+        camclaw_core
+)
+
+add_test(NAME camclaw_semantic_intent_tests COMMAND camclaw_semantic_intent_tests)
 
 find_package(Qt6 COMPONENTS Widgets Network Test QUIET)
 

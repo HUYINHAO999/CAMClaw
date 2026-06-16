@@ -112,7 +112,7 @@ AgentDraftServiceResult HttpAgentDraftService::createDraft(const AgentDraftReque
         return result;
     }
 
-    const AgentPlanDraftDecodeResult decoded = codec_.decodeBackendDraft(std::string(response_body.constData(), response_body.size()));
+    const SemanticPlanDraftDecodeResult decoded = codec_.decodeBackendDraft(std::string(response_body.constData(), response_body.size()));
     if (!decoded.ok) {
         result.error_code = fromStd(decoded.error_code);
         result.message = fromStd(decoded.message);

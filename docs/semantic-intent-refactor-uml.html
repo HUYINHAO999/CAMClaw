@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CAMClaw Semantic Intent 重构 UML</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7fa;
+      --panel: #ffffff;
+      --ink: #18212f;
+      --muted: #667085;
+      --line: #d8dee8;
+      --accent: #0f6cbd;
+      --accent-bg: #eaf3ff;
+      --green-bg: #ecfdf3;
+      --green-line: #abefc6;
+      --yellow-bg: #fff8e8;
+      --yellow-line: #ffd089;
+      --red-bg: #fff0ed;
+      --red-line: #f5b5ae;
+      --code: #f1f4f8;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      min-width: 1280px;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.62 "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 300px minmax(940px, 1fr);
+      min-height: 100vh;
+    }
+
+    aside {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 28px 22px;
+      border-right: 1px solid var(--line);
+      background: var(--panel);
+      overflow: auto;
+    }
+
+    main { padding: 34px 42px 64px; }
+
+    h1, h2, h3 { margin: 0; line-height: 1.25; }
+    h1 { font-size: 28px; }
+    h2 {
+      margin-top: 34px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+      font-size: 22px;
+    }
+    h3 { margin-top: 20px; font-size: 17px; }
+
+    p { margin: 10px 0 0; color: var(--muted); }
+
+    nav {
+      margin-top: 24px;
+      display: grid;
+      gap: 8px;
+    }
+
+    nav a {
+      padding: 8px 10px;
+      border-radius: 8px;
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    nav a:hover {
+      background: var(--accent-bg);
+      color: var(--accent);
+    }
+
+    code {
+      padding: 2px 5px;
+      border-radius: 5px;
+      background: var(--code);
+      color: #1d2939;
+      font-family: Consolas, "Cascadia Mono", monospace;
+      font-size: 0.92em;
+    }
+
+    pre {
+      margin: 12px 0 0;
+      padding: 14px;
+      overflow: auto;
+      border-radius: 8px;
+      background: #111827;
+      color: #e5e7eb;
+      font: 13px/1.55 Consolas, "Cascadia Mono", monospace;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    .note {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .note strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .good { border-color: var(--green-line); background: var(--green-bg); }
+    .warn { border-color: var(--yellow-line); background: var(--yellow-bg); }
+    .bad { border-color: var(--red-line); background: var(--red-bg); }
+
+    .diagram {
+      margin-top: 16px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      overflow: auto;
+    }
+
+    .diagram .mermaid { min-width: 1060px; }
+
+    table {
+      width: 100%;
+      margin-top: 14px;
+      border-collapse: collapse;
+      background: var(--panel);
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th { background: #eef3f8; }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--accent-bg);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <h1>Semantic Intent UML</h1>
+      <p>LLM 只做语义解析，传统 CAM 后端做计算和执行。</p>
+      <nav>
+        <a href="#summary">重构点总结</a>
+        <a href="#flow">端到端流程</a>
+        <a href="#llm-uml">LLM / Python UML</a>
+        <a href="#qt-uml">Qt / C++ UML</a>
+        <a href="#target">TargetSelector</a>
+        <a href="#sequence">典型时序</a>
+        <a href="#migration">迁移步骤</a>
+      </nav>
+    </aside>
+
+    <main>
+      <section id="summary">
+        <h1>CAMClaw Semantic Intent 重构方案</h1>
+        <p>这版不再让 LLM 输出具体执行事件。LLM 只解析用户自然语言，输出强类型语义意图；Qt/C++ 传统 CAM 后端负责目标解析、特征识别、工序选择、参数策略、刀具选择、刀轨计算和 UI 刷新。</p>
+
+        <div class="grid">
+          <div class="note good">
+            <strong>LLM 职责</strong>
+            <span>解析自然语言为 <code>SemanticIntentPlan</code>，例如创建工序、修改参数、隐藏刀轨。</span>
+          </div>
+          <div class="note good">
+            <strong>Python 职责</strong>
+            <span>用 Pydantic 校验请求、LLM raw JSON、意图 schema、输出 draft。</span>
+          </div>
+          <div class="note good">
+            <strong>Qt/C++ 职责</strong>
+            <span>执行传统 CAM 业务：解析目标、特征识别、创建工序、选刀、计算刀轨、刷新 UI。</span>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>重构点</th>
+              <th>当前问题</th>
+              <th>目标设计</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>LLM 输出</td>
+              <td><code>command_id/schema_id/inputs</code> 混合了 LLM tool 和 C++ command。</td>
+              <td>输出 <code>SemanticIntentPlan</code>，只表达语义，不指定 C++ 接口。</td>
+            </tr>
+            <tr>
+              <td>强类型校验</td>
+              <td>主要靠手写 parse 和 <code>map&lt;string,string&gt;</code>。</td>
+              <td>Python 端 Pydantic 校验每种 intent；C++ 端逐步强类型 command。</td>
+            </tr>
+            <tr>
+              <td>Target</td>
+              <td><code>current_selection / operation_type / all / same_as_previous</code> 混杂。</td>
+              <td>统一为 <code>objects / query / ref</code> 三种 target。</td>
+            </tr>
+            <tr>
+              <td>多意图</td>
+              <td>容易产生组合型大意图，例如 <code>edit_operation_and_recompute</code>。</td>
+              <td>拆成顺序意图：<code>edit_operation</code> + <code>regenerate_toolpath</code>。</td>
+            </tr>
+            <tr>
+              <td>HumanInLoop</td>
+              <td>主要在执行时解决目标不唯一。</td>
+              <td>作为通用 interrupt：缺字段、目标不唯一、语义冲突都进入 <code>awaiting_input</code>。</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="flow">
+        <h2>端到端流程</h2>
+        <div class="diagram">
+          <pre class="mermaid">
+flowchart LR
+  subgraph QtClient["Qt 客户端"]
+    A["AgentReviewDialog<br/>用户 prompt"]
+    B["AgentDraftService<br/>收集上下文"]
+    C["selected_object_ids<br/>target_display_name<br/>tree state snapshot"]
+  end
+
+  subgraph PythonLLM["Python / LLM 语义解析"]
+    D["AgentPlanRequest<br/>Pydantic"]
+    E["SemanticIntent Contract<br/>system prompt"]
+    F["LLM raw JSON"]
+    G["SemanticIntentPlan<br/>Pydantic"]
+    H["IntentNormalizer<br/>局部确定性归一化"]
+    I["IntentPlanValidator<br/>跨意图校验"]
+  end
+
+  subgraph CppCam["Qt / C++ CAM 后端"]
+    J["SemanticPlanDraft<br/>待审核"]
+    K["HumanInLoopService<br/>awaiting_input"]
+    L["IntentDispatcher"]
+    M["TargetResolver<br/>objects/query/ref"]
+    N["CAM Application Services"]
+    O["OperationService<br/>ToolPathService<br/>ToolSelector<br/>FeatureRecognizer"]
+    P["Repository + BrowserTree + Viewport"]
+  end
+
+  A --> B
+  C --> B
+  B --> D
+  D --> E
+  E --> F
+  F --> G
+  G --> H
+  H --> I
+  I --> J
+  J --> K
+  K --> L
+  L --> M
+  M --> N
+  N --> O
+  O --> P
+
+  classDef py fill:#eaf3ff,stroke:#91caff,color:#18212f;
+  classDef qt fill:#ecfdf3,stroke:#abefc6,color:#18212f;
+  classDef hil fill:#fff8e8,stroke:#ffd089,color:#18212f;
+  class D,E,F,G,H,I py;
+  class A,B,C,J,L,M,N,O,P qt;
+  class K hil;
+          </pre>
+        </div>
+      </section>
+
+      <section id="llm-uml">
+        <h2>LLM / Python UML</h2>
+        <p>Python 端的核心是 Pydantic schema。LLM raw JSON 必须经过 <code>SemanticIntentPlan</code> 校验，不能直接进入 Qt/C++。</p>
+        <div class="diagram">
+          <pre class="mermaid">
+classDiagram
+  direction LR
+
+  class AgentPlanRequest {
+    +str trace_id
+    +str user_request
+    +list~str~ selected_object_ids
+    +str target_display_name
+    +str rejection_reason
+    +dict context
+  }
+
+  class SemanticIntentPlan {
+    +str schema_version
+    +str trace_id
+    +list~SemanticIntent~ intents
+  }
+
+  class SemanticIntent {
+    +str id
+    +IntentKind intent
+    +TargetSelector target
+  }
+
+  class CreateOperationsIntent {
+    +list~OperationCreateItem~ items
+    +bool auto_generate_toolpath
+  }
+
+  class MachineFeatureIntent {
+    +TargetSelector target
+    +bool auto_generate_toolpath
+    +dict requirements
+  }
+
+  class EditOperationIntent {
+    +TargetSelector target
+    +list~ParameterUpdate~ updates
+    +bool open_editor
+  }
+
+  class RegenerateToolpathIntent {
+    +TargetSelector target
+  }
+
+  class SetToolpathVisibilityIntent {
+    +list~VisibilityAction~ actions
+  }
+
+  class TargetSelector {
+    +TargetKind kind
+  }
+
+  class ObjectsTarget {
+    +list~str~ object_ids
+  }
+
+  class QueryTarget {
+    +str object_type
+    +str scope
+    +dict filters
+  }
+
+  class RefTarget {
+    +str ref
+  }
+
+  class IntentNormalizer {
+    +normalize(plan) SemanticIntentPlan
+  }
+
+  class IntentPlanValidator {
+    +validate(plan) SemanticIntentPlan
+  }
+
+  class SemanticPlanner {
+    +create_plan(request) SemanticIntentPlan
+  }
+
+  AgentPlanRequest --> SemanticPlanner
+  SemanticPlanner --> SemanticIntentPlan
+  SemanticIntentPlan "1" o-- "*" SemanticIntent
+  SemanticIntent <|-- CreateOperationsIntent
+  SemanticIntent <|-- MachineFeatureIntent
+  SemanticIntent <|-- EditOperationIntent
+  SemanticIntent <|-- RegenerateToolpathIntent
+  SemanticIntent <|-- SetToolpathVisibilityIntent
+  SemanticIntent --> TargetSelector
+  TargetSelector <|-- ObjectsTarget
+  TargetSelector <|-- QueryTarget
+  TargetSelector <|-- RefTarget
+  SemanticPlanner --> IntentNormalizer
+  IntentNormalizer --> IntentPlanValidator
+          </pre>
+        </div>
+      </section>
+
+      <section id="qt-uml">
+        <h2>Qt / C++ UML</h2>
+        <p>Qt/C++ 不再根据 prompt 猜意图，而是执行已校验的语义计划。复杂 CAM 逻辑后置到传统业务服务。</p>
+        <div class="diagram">
+          <pre class="mermaid">
+classDiagram
+  direction LR
+
+  class AgentReviewDialog {
+    +generateDraft()
+    +confirmDraft()
+    +showClarification()
+  }
+
+  class AgentDraftService {
+    +createDraft(request) SemanticPlanDraft
+  }
+
+  class SemanticPlanDraft {
+    +DraftStatus status
+    +list~SemanticIntent~ intents
+    +ClarificationRequest clarification
+  }
+
+  class HumanInLoopService {
+    +createRequest(reason, choices)
+    +submitResponse(response)
+  }
+
+  class IntentDispatcher {
+    +dispatch(plan) ExecutionResult
+    +dispatchIntent(intent) IntentResult
+  }
+
+  class TargetResolver {
+    +resolve(target) TargetResolutionResult
+    +resolveObjects(object_ids)
+    +resolveQuery(object_type, filters)
+    +resolveRef(ref, execution_context)
+  }
+
+  class ExecutionContext {
+    +map~str, IntentResult~ results
+    +primaryObjectIds(intent_id)
+  }
+
+  class CAMApplicationService {
+    +machineFeature(intent)
+    +createOperations(intent)
+    +editOperation(intent)
+    +regenerateToolpath(intent)
+    +setToolpathVisibility(intent)
+  }
+
+  class FeatureRecognizer {
+    +recognize(feature) FeatureType
+  }
+
+  class OperationStrategySelector {
+    +select(feature_type, requirements) OperationType
+  }
+
+  class OperationService {
+    +createOperation(request)
+    +updateParameters(operation_id, updates)
+  }
+
+  class ToolSelector {
+    +selectDefault(operation_type)
+    +resolveRelativeTool(current_tool, expression)
+  }
+
+  class ToolPathService {
+    +generate(operation_id)
+    +regenerate(operation_id)
+    +setVisibility(toolpath_ids, visible)
+  }
+
+  class BrowserConsole {
+    +refreshTree()
+    +openEditor(operation_id)
+  }
+
+  class BrowserTree {
+    +addItem(item)
+    +removeItem(item)
+    +refresh()
+  }
+
+  class Repository {
+    +save(object)
+    +get(object_id)
+    +objectsByType(type)
+  }
+
+  AgentReviewDialog --> AgentDraftService
+  AgentReviewDialog --> HumanInLoopService
+  AgentReviewDialog --> IntentDispatcher
+  AgentDraftService --> SemanticPlanDraft
+  IntentDispatcher --> TargetResolver
+  IntentDispatcher --> ExecutionContext
+  IntentDispatcher --> CAMApplicationService
+  CAMApplicationService --> FeatureRecognizer
+  CAMApplicationService --> OperationStrategySelector
+  CAMApplicationService --> OperationService
+  CAMApplicationService --> ToolSelector
+  CAMApplicationService --> ToolPathService
+  CAMApplicationService --> BrowserConsole
+  BrowserConsole --> BrowserTree
+  OperationService --> Repository
+  ToolPathService --> Repository
+  TargetResolver --> Repository
+          </pre>
+        </div>
+      </section>
+
+      <section id="target">
+        <h2>TargetSelector 统一模型</h2>
+        <p>Target 只保留三种互斥类型：明确对象、条件查询、引用前一步结果。当前选择由 Qt 请求上下文提供，不作为 target kind。</p>
+        <div class="diagram">
+          <pre class="mermaid">
+classDiagram
+  direction TB
+
+  class TargetSelector {
+    <<abstract>>
+    +kind
+  }
+
+  class ObjectsTarget {
+    +kind = "objects"
+    +object_ids: string[]
+  }
+
+  class QueryTarget {
+    +kind = "query"
+    +object_type: "feature|operation|toolpath"
+    +scope: "all|matching"
+    +filters: dict
+  }
+
+  class RefTarget {
+    +kind = "ref"
+    +ref: "previous.primary_object_ids"
+  }
+
+  TargetSelector <|-- ObjectsTarget
+  TargetSelector <|-- QueryTarget
+  TargetSelector <|-- RefTarget
+          </pre>
+        </div>
+
+        <h3>例子</h3>
+        <pre>{
+  "kind": "objects",
+  "object_ids": ["feature_holes_001"]
+}</pre>
+        <pre>{
+  "kind": "query",
+  "object_type": "toolpath",
+  "scope": "matching",
+  "filters": {
+    "operation_type": "pocket"
+  }
+}</pre>
+        <pre>{
+  "kind": "ref",
+  "ref": "previous.primary_object_ids"
+}</pre>
+      </section>
+
+      <section id="sequence">
+        <h2>典型时序</h2>
+        <p>例子：用户输入“帮我打开树上的型腔铣工序，把刀具改大一些，然后重新计算”。LLM 输出两个意图，不生成组合型大意图。</p>
+        <div class="diagram">
+          <pre class="mermaid">
+sequenceDiagram
+  autonumber
+  participant User as 用户
+  participant Qt as Qt AgentReviewDialog
+  participant Py as Python SemanticPlanner
+  participant LLM as LLM
+  participant Disp as IntentDispatcher
+  participant Resolver as TargetResolver
+  participant HIL as HumanInLoop
+  participant Cam as CAMApplicationService
+  participant Repo as Repository/UI
+
+  User->>Qt: 帮我打开树上的型腔铣工序，把刀具改大一些，然后重新计算
+  Qt->>Py: AgentPlanRequest(prompt, selected_object_ids, context)
+  Py->>LLM: SemanticIntent contract + request JSON
+  LLM-->>Py: raw SemanticIntentPlan JSON
+  Py->>Py: Pydantic validate + normalize
+  Py-->>Qt: SemanticPlanDraft(pending_review)
+  User->>Qt: 确认执行
+  Qt->>Disp: dispatch(intents)
+  Disp->>Resolver: resolve QueryTarget(operation_type=pocket)
+  Resolver-->>Disp: multiple matches
+  Disp->>HIL: request clarification
+  HIL-->>Qt: awaiting_input choices
+  User->>Qt: 选择一个型腔铣工序
+  Qt->>Disp: resume with ObjectsTarget
+  Disp->>Cam: edit_operation(tool larger, open_editor=true)
+  Cam->>Repo: update operation + open editor
+  Disp->>Cam: regenerate_toolpath(ref previous.primary_object_ids)
+  Cam->>Repo: regenerate toolpath + refresh tree/viewport
+          </pre>
+        </div>
+
+        <pre>{
+  "schema_version": "1",
+  "intents": [
+    {
+      "id": "i1",
+      "intent": "edit_operation",
+      "target": {
+        "kind": "query",
+        "object_type": "operation",
+        "scope": "matching",
+        "filters": {
+          "operation_type": "pocket"
+        }
+      },
+      "updates": [
+        {
+          "parameter": "tool",
+          "expression": "larger"
+        }
+      ],
+      "open_editor": true
+    },
+    {
+      "id": "i2",
+      "intent": "regenerate_toolpath",
+      "target": {
+        "kind": "ref",
+        "ref": "previous.primary_object_ids"
+      }
+    }
+  ]
+}</pre>
+      </section>
+
+      <section id="migration">
+        <h2>迁移步骤</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>阶段</th>
+              <th>LLM / Python</th>
+              <th>Qt / C++</th>
+              <th>验收标准</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Phase 1</td>
+              <td>新增 Pydantic <code>SemanticIntentPlan</code>，LLM 输出 intent，不再输出 command。</td>
+              <td>Qt 新增 <code>SemanticPlanDraftJsonCodec</code> 和 <code>SemanticIntentExecutor</code>，CAMClaw 弹窗直接执行 semantic plan。</td>
+              <td>LLM raw JSON 经过 Pydantic，Qt 不再把 Agent 草案转回旧 <code>command_id</code>。</td>
+            </tr>
+            <tr>
+              <td>Phase 2</td>
+              <td>增加 <code>awaiting_input</code> draft 响应，缺字段直接进入 HumanInLoop。</td>
+              <td>新增 <code>IntentDispatcher</code>、<code>TargetResolver(objects/query/ref)</code>。</td>
+              <td>复杂任务支持多个 intent 顺序执行。</td>
+            </tr>
+            <tr>
+              <td>Phase 3</td>
+              <td>清理旧 command prompt，保留 semantic contract。</td>
+              <td>清理历史 <code>AgentPlanDraft</code> agent 路径，C++ 核心转强类型 command/service。</td>
+              <td>Qt/C++ 不再消费裸 <code>map&lt;string,string&gt;</code> 业务参数。</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+  </div>
+
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({
+      startOnLoad: true,
+      securityLevel: "loose",
+      theme: "base",
+      flowchart: {
+        htmlLabels: true,
+        curve: "basis",
+        nodeSpacing: 48,
+        rankSpacing: 68
+      },
+      sequence: {
+        mirrorActors: false,
+        actorMargin: 70,
+        boxMargin: 12
+      },
+      themeVariables: {
+        fontFamily: "Microsoft YaHei, Segoe UI, Arial, sans-serif",
+        primaryColor: "#eaf3ff",
+        primaryTextColor: "#18212f",
+        primaryBorderColor: "#91caff",
+        lineColor: "#667085",
+        secondaryColor: "#ecfdf3",
+        tertiaryColor: "#fff8e8"
+      }
+    });
+  </script>
+</body>
+</html>

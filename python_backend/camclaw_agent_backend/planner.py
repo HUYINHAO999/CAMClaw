@@ -5,8 +5,11 @@ import re
 from dataclasses import dataclass
 from typing import Dict, List, Protocol
 
-from .contracts import REQUIRED_ROUGHING_FIELDS, cam_action_plan_json_contract, roughing_plan_json_contract
+from pydantic import ValidationError
+
+from .contracts import REQUIRED_ROUGHING_FIELDS, cam_action_plan_json_contract, roughing_plan_json_contract, semantic_intent_plan_json_contract
 from .feature_recognition import FeatureRecognizer
+from .semantic_schemas import SemanticIntentPlan
 from .tool_library import ToolLibrary
 
 
@@ -56,9 +59,16 @@ class AgentPlanner:
             user_request=planner_input.user_request,
             target_object_id=planner_input.target_object_id,
             rejection_reason=planner_input.rejection_reason,
-            response_contract=cam_action_plan_json_contract(self._tool_library.to_planning_context()),
+            response_contract=semantic_intent_plan_json_contract(self._tool_library.to_planning_context()),
         )
         parsed = self._parse_json_object(plan_json)
+        if "schema_version" in parsed and "intents" in parsed:
+            try:
+                plan = SemanticIntentPlan.model_validate(parsed)
+            except ValidationError as exc:
+                raise PlannerError("invalid_semantic_intent", str(exc)) from exc
+            return self._normalize_semantic_plan(planner_input, plan)
+
         if "command_id" not in parsed:
             if "actions" in parsed:
                 return self._create_action_sequence_draft(planner_input, parsed)
@@ -72,6 +82,13 @@ class AgentPlanner:
             "steps": [step],
             "trace_events": ["draft_created"],
         }
+
+    def _normalize_semantic_plan(self, planner_input: PlannerInput, plan: SemanticIntentPlan) -> Dict[str, object]:
+        data = plan.model_dump(mode="json")
+        data["trace_id"] = planner_input.trace_id
+        data["status"] = "pending_review"
+        data["trace_events"] = ["semantic_draft_created"]
+        return data
 
     def _create_action_sequence_draft(self, planner_input: PlannerInput, parsed: Dict[str, object]) -> Dict[str, object]:
         actions = parsed.get("actions")

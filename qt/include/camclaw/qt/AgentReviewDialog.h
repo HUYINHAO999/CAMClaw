@@ -1,9 +1,8 @@
 #ifndef CAMCLAW_QT_AGENT_REVIEW_DIALOG_H
 #define CAMCLAW_QT_AGENT_REVIEW_DIALOG_H
 
-#include "camclaw/AgentPlanDraft.h"
-#include "camclaw/AgentPlanExecutor.h"
 #include "camclaw/HumanInLoopService.h"
+#include "camclaw/SemanticIntentPlan.h"
 #include "camclaw/qt/AgentDraftService.h"
 
 #include <QDialog>
@@ -23,7 +22,7 @@ public:
         const QString& target_object_id,
         const QString& target_display_name,
         AgentDraftService& draft_service,
-        AgentPlanExecutor& executor,
+        SemanticIntentExecutor& executor,
         HumanInLoopService* human_in_loop_service = 0,
         QWidget* parent = 0);
 
@@ -55,9 +54,9 @@ private:
     void setExecutionResult(const AgentPlanExecutionResult& result);
     bool requestClarificationAndResume(const AgentPlanExecutionResult& result);
     void setResultMessage(const QString& status, const QString& body);
-    QString statusText(DraftStatus status) const;
+    QString statusText(SemanticDraftStatus status) const;
     QString draftStepText() const;
-    QString commandTextForSkill(const SkillStepDraft& step) const;
+    QString textForIntent(const SemanticIntent& intent) const;
     QString joinTraceEvents() const;
     QString quote(const QString& value) const;
     bool requestDraftFromBackend(const QString& prompt, const QString& rejection_reason, const QString& success_status);
@@ -65,8 +64,8 @@ private:
     QString target_object_id_;
     QString target_display_name_;
     AgentDraftService& draft_service_;
-    AgentPlanDraft draft_;
-    AgentPlanExecutor& executor_;
+    SemanticPlanDraft draft_;
+    SemanticIntentExecutor& executor_;
     HumanInLoopService* human_in_loop_service_;
     bool has_result_;
     bool execution_succeeded_;

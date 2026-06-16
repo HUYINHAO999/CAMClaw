@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CAMClaw Agent Tool Schema 架构图</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7fa;
+      --panel: #ffffff;
+      --ink: #18212f;
+      --muted: #667085;
+      --line: #d9e0ea;
+      --accent: #0f6cbd;
+      --accent-bg: #eaf3ff;
+      --good: #147a3b;
+      --warn: #a15c00;
+      --warn-bg: #fff2d9;
+      --bad: #b42318;
+      --bad-bg: #fff0ed;
+      --code: #f1f4f8;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-width: 1240px;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.62 "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 292px minmax(920px, 1fr);
+      min-height: 100vh;
+    }
+
+    aside {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 28px 22px;
+      border-right: 1px solid var(--line);
+      background: var(--panel);
+      overflow: auto;
+    }
+
+    main {
+      padding: 34px 42px 64px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin: 0;
+      line-height: 1.25;
+    }
+
+    h1 {
+      font-size: 28px;
+    }
+
+    h2 {
+      margin-top: 34px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+      font-size: 22px;
+    }
+
+    h3 {
+      margin-top: 20px;
+      font-size: 17px;
+    }
+
+    p {
+      margin: 10px 0 0;
+      color: var(--muted);
+    }
+
+    nav {
+      margin-top: 24px;
+      display: grid;
+      gap: 8px;
+    }
+
+    nav a {
+      padding: 8px 10px;
+      border-radius: 8px;
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    nav a:hover {
+      background: var(--accent-bg);
+      color: var(--accent);
+    }
+
+    .card {
+      margin-top: 18px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    .note {
+      padding: 12px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+    }
+
+    .note strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .warn {
+      border-color: #ffd089;
+      background: var(--warn-bg);
+    }
+
+    .bad {
+      border-color: #f5b5ae;
+      background: var(--bad-bg);
+    }
+
+    .good {
+      border-color: #abefc6;
+      background: #ecfdf3;
+    }
+
+    code {
+      padding: 2px 5px;
+      border-radius: 5px;
+      background: var(--code);
+      color: #1d2939;
+      font-family: Consolas, "Cascadia Mono", monospace;
+      font-size: 0.92em;
+    }
+
+    pre {
+      margin: 12px 0 0;
+      padding: 14px;
+      overflow: auto;
+      border-radius: 8px;
+      background: #111827;
+      color: #e5e7eb;
+      font: 13px/1.55 Consolas, "Cascadia Mono", monospace;
+    }
+
+    .diagram {
+      margin-top: 16px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      overflow: auto;
+    }
+
+    .diagram .mermaid {
+      min-width: 980px;
+    }
+
+    table {
+      width: 100%;
+      margin-top: 14px;
+      border-collapse: collapse;
+      background: var(--panel);
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #eef3f8;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--accent-bg);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <h1>Agent Tool Schema</h1>
+      <p>从当前 <code>command_id</code> 原型，迁移到 <code>skill/tool/schema</code> + Pydantic 校验。</p>
+      <nav>
+        <a href="#summary">一页总结</a>
+        <a href="#current">当前链路</a>
+        <a href="#target">目标链路</a>
+        <a href="#layers">三层命名</a>
+        <a href="#pydantic">Pydantic 校验点</a>
+        <a href="#hil">HumanInLoop</a>
+        <a href="#migration">渐进迁移</a>
+      </nav>
+    </aside>
+
+    <main>
+      <section id="summary">
+        <h1>CAMClaw Agent Tool Schema 架构图</h1>
+        <div class="note warn">
+          <strong>已被后续方案替代</strong>
+          <span>这页记录的是中间演进方案。当前采用的最终方向是 <code>SemanticIntentPlan</code>：LLM 只做语义解析，Qt/C++ 直接执行 semantic plan。请优先查看 <code>semantic-intent-refactor-uml.html</code>。</span>
+        </div>
+        <p>目标不是马上上 MCP，而是先把 Agent 层术语和数据契约理清：LLM 看到的是 skill/tool，Python 用 Pydantic 验证，C++ 执行的是 command/service。</p>
+
+        <div class="grid">
+          <div class="note bad">
+            <strong>现在的问题</strong>
+            <span><code>command_id/schema_id/inputs</code> 同时承担 LLM tool、schema、C++ 路由和 UI console 名称。</span>
+          </div>
+          <div class="note good">
+            <strong>目标结构</strong>
+            <span><code>skill -> tool -> Pydantic schema -> validated plan -> C++ command</code>。</span>
+          </div>
+          <div class="note warn">
+            <strong>迁移策略</strong>
+            <span>Python 先强类型化，Qt/C++ 暂时兼容旧 draft，随后删除兼容层。</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="current">
+        <h2>当前链路</h2>
+        <p>当前能跑，但 LLM 返回后主要靠手写校验和字符串字段流转。<code>operation_type</code> 空值、字段冲突这类问题容易漏到后面。</p>
+        <div class="diagram">
+          <pre class="mermaid">
+flowchart LR
+  A["Qt CAMClaw Dialog<br/>prompt + selected object"] --> B["AgentDraftService.cpp<br/>HTTP JSON"]
+  B --> C["server.py<br/>payload dict"]
+  C --> D["PlannerInput dataclass<br/>轻量结构"]
+  D --> E["contracts.py<br/>response_contract"]
+  E --> F["LLM<br/>raw JSON"]
+  F --> G["planner.py<br/>手写 parse / normalize"]
+  G --> H["AgentPlanDraft<br/>command_id / schema_id / inputs"]
+  H --> I["Qt Review Dialog"]
+  I --> J["AgentPlanExecutor"]
+  J --> K["SkillRuntime<br/>map&lt;string,string&gt; args"]
+  K --> L["ActionGateway / BrowserConsole"]
+  L --> M["OperationService / ToolPathService"]
+
+  classDef weak fill:#fff0ed,stroke:#f5b5ae,color:#7a271a;
+  class F,G,K weak;
+          </pre>
+        </div>
+      </section>
+
+      <section id="target">
+        <h2>目标链路</h2>
+        <p>改进后，LLM raw output 永远不直接进入 Qt/C++。Python backend 用 Pydantic 先把 tool call 变成可信计划。</p>
+        <div class="diagram">
+          <pre class="mermaid">
+flowchart LR
+  A["Qt CAMClaw Dialog"] --> B["AgentPlanRequest JSON"]
+  B --> C["Pydantic<br/>AgentPlanRequest"]
+  C --> D["Skill Registry<br/>operation.skill.v1<br/>toolpath.skill.v1"]
+  D --> E["System Prompt<br/>skill + tool contracts"]
+  E --> F["LLM raw tool calls"]
+  F --> G["Pydantic<br/>ToolCallEnvelope"]
+  G --> H["ToolRegistry<br/>tool/schema -> input model"]
+  H --> I["Pydantic<br/>Tool Input Models"]
+  I --> N["Normalizer<br/>局部确定性修正"]
+  N --> P["Planner<br/>顺序/冲突/HIL 判断"]
+  P --> Q{"Need clarification?"}
+  Q -- "yes" --> R["PlanDraft<br/>status=awaiting_input"]
+  Q -- "no" --> S["Validated PlanDraft<br/>status=pending_review"]
+  S --> T["Qt Review Dialog"]
+  T --> U["ToolDispatcher"]
+  U --> V["C++ Command Adapter"]
+  V --> W["ActionGateway"]
+  W --> X["Services / Repository"]
+
+  classDef strong fill:#ecfdf3,stroke:#abefc6,color:#05603a;
+  classDef pause fill:#fff2d9,stroke:#ffd089,color:#7a4500;
+  class C,G,I,S strong;
+  class R,Q pause;
+          </pre>
+        </div>
+      </section>
+
+      <section id="layers">
+        <h2>三层命名</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>层</th>
+              <th>给谁看</th>
+              <th>例子</th>
+              <th>职责</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="pill">Skill</span></td>
+              <td>LLM / Planner</td>
+              <td><code>operation.skill.v1</code>, <code>toolpath.skill.v1</code></td>
+              <td>能力包，描述有哪些 tools、什么时候用、输入输出规则。</td>
+            </tr>
+            <tr>
+              <td><span class="pill">Tool</span></td>
+              <td>LLM 输出</td>
+              <td><code>operation.create</code>, <code>toolpath.set_visibility</code></td>
+              <td>Agent 可调用动作。短期 1:1 映射 C++ command，长期可 1:N。</td>
+            </tr>
+            <tr>
+              <td><span class="pill">Command</span></td>
+              <td>C++ 执行层</td>
+              <td><code>CreateOperationCommand</code>, <code>SetToolpathVisibilityCommand</code></td>
+              <td>强类型执行对象，调用 <code>OperationService</code> / <code>ToolPathService</code>。</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="diagram">
+          <pre class="mermaid">
+flowchart TB
+  S["operation.skill.v1"] --> T1["operation.create"]
+  S --> T2["operation.update_parameters"]
+  TP["toolpath.skill.v1"] --> T3["toolpath.generate"]
+  TP --> T4["toolpath.set_visibility"]
+
+  T1 --> D["ToolDispatcher"]
+  T2 --> D
+  T3 --> D
+  T4 --> D
+
+  D --> C1["CreateOperationCommand"]
+  D --> C2["UpdateOperationCommand"]
+  D --> C3["GenerateToolpathCommand"]
+  D --> C4["SetToolpathVisibilityCommand"]
+
+  C1 --> O["OperationService"]
+  C2 --> O
+  C3 --> P["ToolPathService"]
+  C4 --> P
+          </pre>
+        </div>
+      </section>
+
+      <section id="pydantic">
+        <h2>Pydantic 校验点</h2>
+        <p>关键原则：LLM 可以乱说，但 raw JSON 必须通过 Pydantic 才能变成系统计划。</p>
+        <div class="diagram">
+          <pre class="mermaid">
+flowchart LR
+  A["HTTP request"] --> B["AgentPlanRequest<br/>Pydantic"]
+  C["LLM raw JSON"] --> D["ToolCallEnvelope<br/>Pydantic"]
+  D --> E["ToolRegistry"]
+  E --> F["operation.create.v1<br/>CreateOperationInput"]
+  E --> G["toolpath.set_visibility.v1<br/>SetToolpathVisibilityInput"]
+  E --> H["operation.update_parameters.v1<br/>UpdateParametersInput"]
+  F --> I["Validated ToolCall"]
+  G --> I
+  H --> I
+  I --> J["PlanDraftResponse<br/>Pydantic"]
+          </pre>
+        </div>
+
+        <pre>{
+  "tool": "toolpath.set_visibility",
+  "schema": "toolpath.set_visibility.v1",
+  "input": {
+    "visibility": "hide",
+    "target": {
+      "scope": "operation_type",
+      "operation_type": "pocket"
+    }
+  }
+}</pre>
+      </section>
+
+      <section id="hil">
+        <h2>HumanInLoop</h2>
+        <p>HumanInLoop 不补脏字段，不替执行层猜意图。它处理不确定性，并把计划状态切到 <code>awaiting_input</code>。</p>
+        <div class="diagram">
+          <pre class="mermaid">
+stateDiagram-v2
+  [*] --> draft_requested
+  draft_requested --> pending_review: valid plan
+  draft_requested --> awaiting_input: missing/ambiguous intent
+  awaiting_input --> pending_review: user clarified
+  pending_review --> confirmed: user confirms
+  pending_review --> rejected: user rejects
+  confirmed --> executing
+  executing --> completed
+  executing --> failed
+  completed --> [*]
+  failed --> [*]
+  rejected --> [*]
+          </pre>
+        </div>
+
+        <pre>{
+  "status": "awaiting_input",
+  "clarification": {
+    "reason": "missing_operation_type",
+    "message": "请选择要隐藏哪类刀轨",
+    "choices": [
+      { "label": "型腔铣", "value": "pocket" },
+      { "label": "钻孔", "value": "drilling" },
+      { "label": "平面铣", "value": "finishing" }
+    ]
+  }
+}</pre>
+      </section>
+
+      <section id="migration">
+        <h2>渐进迁移</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>阶段</th>
+              <th>改动</th>
+              <th>保留兼容</th>
+              <th>完成标志</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Phase 1</td>
+              <td>Python backend 引入 Pydantic、Skill Registry、ToolCall 格式。</td>
+              <td>Python 输出仍转成旧 Qt draft：<code>command_id/schema_id/inputs</code>。</td>
+              <td>LLM raw action 不再绕过 Pydantic。</td>
+            </tr>
+            <tr>
+              <td>Phase 2</td>
+              <td>Qt/C++ 增加 ToolDraft / CommandAdapter。</td>
+              <td>旧 draft 只作为兼容输入。</td>
+              <td>C++ 核心不再依赖裸 <code>map&lt;string,string&gt;</code>。</td>
+            </tr>
+            <tr>
+              <td>Phase 3</td>
+              <td>删除旧 <code>command_id</code> 兼容层。</td>
+              <td>无。</td>
+              <td>全链路使用 <code>skill/tool/schema</code> 命名。</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="note warn">
+          <strong>两阶段 Planner 触发条件</strong>
+          <span>当 skill 数量 &gt; 10，或 system prompt &gt; 4000 tokens 时，从单阶段 prompt 切换为 SkillRouter + ToolPlanner 两阶段。</span>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({
+      startOnLoad: true,
+      securityLevel: "loose",
+      theme: "base",
+      flowchart: {
+        htmlLabels: true,
+        curve: "basis",
+        nodeSpacing: 48,
+        rankSpacing: 64
+      },
+      themeVariables: {
+        fontFamily: "Microsoft YaHei, Segoe UI, Arial, sans-serif",
+        primaryColor: "#eaf3ff",
+        primaryTextColor: "#18212f",
+        primaryBorderColor: "#91caff",
+        lineColor: "#667085",
+        secondaryColor: "#ecfdf3",
+        tertiaryColor: "#fff2d9"
+      }
+    });
+  </script>
+</body>
+</html>

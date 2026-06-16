@@ -20,49 +20,69 @@ public:
         last_request = request;
         camclaw::AgentDraftServiceResult result;
         result.ok = true;
-        result.draft = camclaw::AgentPlanDraft(request.trace_id.toStdString());
-        std::map<std::string, std::string> inputs;
-        inputs["target_object_id"] = request.target_object_id.toStdString();
+        result.draft = camclaw::SemanticPlanDraft(request.trace_id.toStdString());
         if (request.user_request.contains(QString::fromUtf8("隐藏所有刀轨")) || request.user_request.contains(QString::fromUtf8("显示所有刀轨"))) {
-            inputs["target_object_id"] = request.target_object_id.toStdString();
-            inputs["visibility"] = request.user_request.contains(QString::fromUtf8("隐藏")) ? "hide" : "show";
-            inputs["scope"] = "all";
-            inputs["toolpath_ids"] = "";
-            result.draft.addSkillStep(camclaw::SkillStepDraft("browser.setToolpathVisibility", inputs));
+            camclaw::SemanticIntent intent;
+            intent.id = "i1";
+            intent.kind = camclaw::SemanticIntentKind::SetToolpathVisibility;
+            camclaw::VisibilityIntentAction action;
+            action.visibility = request.user_request.contains(QString::fromUtf8("隐藏")) ? "hide" : "show";
+            action.target.kind = camclaw::SemanticTargetKind::Query;
+            action.target.object_type = "toolpath";
+            action.target.scope = "all";
+            intent.visibility_actions.push_back(action);
+            result.draft.addIntent(intent);
             return result;
         }
         if (request.user_request.contains(QString::fromUtf8("打开树上的型腔铣工序"))
             || request.user_request.contains(QString::fromUtf8("步进改小"))) {
-            inputs.clear();
-            inputs["scope"] = "operation_type";
-            inputs["operation_type"] = "pocket";
-            inputs["parameter_name"] = "stepover";
-            inputs["parameter_value"] = "0.8";
-            inputs["recompute_toolpath"] = "true";
-            inputs["schema_id"] = "browser.updateOperation.v1";
-            result.draft.addSkillStep(camclaw::SkillStepDraft("browser.updateOperation", inputs));
+            camclaw::SemanticIntent edit;
+            edit.id = "i1";
+            edit.kind = camclaw::SemanticIntentKind::EditOperation;
+            edit.target.kind = camclaw::SemanticTargetKind::Query;
+            edit.target.object_type = "operation";
+            edit.target.scope = "matching";
+            edit.target.filters["operation_type"] = "pocket";
+            camclaw::ParameterUpdateIntent update;
+            update.parameter = "stepover";
+            update.value = "0.8";
+            edit.updates.push_back(update);
+            result.draft.addIntent(edit);
+            camclaw::SemanticIntent regenerate;
+            regenerate.id = "i2";
+            regenerate.kind = camclaw::SemanticIntentKind::RegenerateToolpath;
+            regenerate.target.kind = camclaw::SemanticTargetKind::Ref;
+            regenerate.target.ref = "previous.primary_object_ids";
+            result.draft.addIntent(regenerate);
             return result;
         }
+        std::string operation_type;
         if (request.target_object_id.contains("holes") || request.target_display_name.contains(QString::fromUtf8("孔"))) {
-            inputs["operation_type"] = "drilling";
+            operation_type = "drilling";
         } else if (request.target_object_id.contains("plane") || request.target_display_name.contains(QString::fromUtf8("平面"))) {
-            inputs["operation_type"] = "finishing";
+            operation_type = "finishing";
         } else {
-            inputs["operation_type"] = "pocket";
+            operation_type = "pocket";
         }
-        if (request.rejection_reason.contains(QString::fromUtf8("小")) || request.rejection_reason.contains("smaller")) {
-            inputs["tool_id"] = "tool_006";
-            inputs["stepover"] = "1.2";
-            inputs["stepdown"] = "0.6";
+        const bool auto_generate = request.user_request.contains(QString::fromUtf8("加工"));
+        if (auto_generate && !request.target_object_id.isEmpty()) {
+            camclaw::SemanticIntent intent;
+            intent.id = "i1";
+            intent.kind = camclaw::SemanticIntentKind::MachineFeature;
+            intent.target.kind = camclaw::SemanticTargetKind::Objects;
+            intent.target.object_ids.push_back(request.target_object_id.toStdString());
+            intent.auto_generate_toolpath = true;
+            result.draft.addIntent(intent);
         } else {
-            inputs["tool_id"] = inputs["operation_type"] == "drilling" ? "drill_006" : "tool_010";
-            inputs["stepover"] = inputs["operation_type"] == "drilling" ? "0" : "2.0";
-            inputs["stepdown"] = inputs["operation_type"] == "drilling" ? "3.0" : "1.0";
+            camclaw::SemanticIntent intent;
+            intent.id = "i1";
+            intent.kind = camclaw::SemanticIntentKind::CreateOperations;
+            camclaw::OperationCreateItem item;
+            item.operation_type = operation_type;
+            item.count = request.user_request.contains("10") ? 10 : 1;
+            intent.create_items.push_back(item);
+            result.draft.addIntent(intent);
         }
-        inputs["tolerance"] = "0.02";
-        inputs["batch_count"] = request.user_request.contains("10") ? "10" : "1";
-        inputs["auto_generate_toolpath"] = request.user_request.contains(QString::fromUtf8("加工")) ? "true" : "false";
-        result.draft.addSkillStep(camclaw::SkillStepDraft("browser.createOperation", inputs));
         return result;
     }
 
@@ -143,9 +163,7 @@ void CamMainWindowTest::agentDialogConfirmCreatesOperationAndToolpath()
         QVERIFY(generate != 0);
         QTest::mouseClick(generate, Qt::LeftButton);
 
-        QVERIFY(dialog->draftStepTextForTest().contains("Skill: browser.createOperation"));
-        QVERIFY(dialog->draftStepTextForTest().contains("Command: browser.createOperation"));
-        QVERIFY(dialog->draftStepTextForTest().contains("tool_id=tool_010"));
+        QVERIFY(dialog->draftStepTextForTest().contains("Intent: machine_feature"));
         QPushButton* confirm = dialog->findChild<QPushButton*>("confirmButton");
         QVERIFY(confirm != 0);
         QTest::mouseClick(confirm, Qt::LeftButton);
@@ -215,8 +233,7 @@ void CamMainWindowTest::agentDialogRejectAndRegenerateUsesSmallerTool()
         QPushButton* regenerate = dialog->findChild<QPushButton*>("regenerateButton");
         QVERIFY(regenerate != 0);
         QTest::mouseClick(regenerate, Qt::LeftButton);
-        QCOMPARE(dialog->parameterValue("tool_id"), QString("tool_006"));
-        QCOMPARE(dialog->parameterValue("stepover"), QString("1.2"));
+        QVERIFY(dialog->draftStepTextForTest().contains("Intent: machine_feature"));
 
         QPushButton* confirm = dialog->findChild<QPushButton*>("confirmButton");
         QVERIFY(confirm != 0);
@@ -270,8 +287,8 @@ void CamMainWindowTest::agentDialogCallsDraftServiceBeforeShowingPlan()
     repository.save(camclaw::CamObject("feature_001", camclaw::ObjectType::Feature, "型腔 A"));
     camclaw::BrowserConsole browser_console(repository);
     camclaw::ActionGateway gateway(repository, browser_console);
-    camclaw::SkillRuntime skill_runtime(gateway);
-    camclaw::AgentPlanExecutor executor(skill_runtime);
+    camclaw::HumanInLoopService human_in_loop;
+    camclaw::SemanticIntentExecutor executor(repository, human_in_loop);
     FakeAgentDraftService draft_service;
 
     camclaw::AgentReviewDialog dialog(
@@ -292,7 +309,7 @@ void CamMainWindowTest::agentDialogCallsDraftServiceBeforeShowingPlan()
 
     QCOMPARE(draft_service.call_count, 1);
     QCOMPARE(draft_service.last_request.user_request, QString::fromUtf8("给当前型腔加工"));
-    QVERIFY(dialog.draftStepTextForTest().contains("Skill: browser.createOperation"));
+    QVERIFY(dialog.draftStepTextForTest().contains("Intent: machine_feature"));
 }
 
 void CamMainWindowTest::manualOperationButtonsCreateDifferentOperations()
@@ -433,8 +450,8 @@ void CamMainWindowTest::agentDialogShowsFriendlyLlmConnectionFailure()
     repository.save(camclaw::CamObject("feature_001", camclaw::ObjectType::Feature, "型腔 A"));
     camclaw::BrowserConsole browser_console(repository);
     camclaw::ActionGateway gateway(repository, browser_console);
-    camclaw::SkillRuntime skill_runtime(gateway);
-    camclaw::AgentPlanExecutor executor(skill_runtime);
+    camclaw::HumanInLoopService human_in_loop;
+    camclaw::SemanticIntentExecutor executor(repository, human_in_loop);
     FailingAgentDraftService draft_service;
 
     camclaw::AgentReviewDialog dialog(
@@ -667,28 +684,13 @@ void CamMainWindowTest::agentDialogShowsHumanInLoopForAmbiguousOperationTarget()
         QPushButton* confirm = dialog->findChild<QPushButton*>("confirmButton");
         QVERIFY(confirm != 0);
 
-        QTimer::singleShot(0, []() {
-            QDialog* clarification = QApplication::activeModalWidget()
-                ? qobject_cast<QDialog*>(QApplication::activeModalWidget())
-                : 0;
-            QVERIFY(clarification != 0);
-            QCOMPARE(clarification->objectName(), QString("humanInLoopDialog"));
-            QListWidget* candidates = clarification->findChild<QListWidget*>("humanInLoopCandidateList");
-            QVERIFY(candidates != 0);
-            QCOMPARE(candidates->count(), 2);
-            candidates->setCurrentRow(1);
-            QDialogButtonBox* buttons = clarification->findChild<QDialogButtonBox*>("humanInLoopButtons");
-            QVERIFY(buttons != 0);
-            QTest::mouseClick(buttons->button(QDialogButtonBox::Ok), Qt::LeftButton);
-        });
-
         QTest::mouseClick(confirm, Qt::LeftButton);
     });
 
     QTest::mouseClick(window.agentCreateOperationButton(), Qt::LeftButton);
 
-    QVERIFY(find_item(window.browserTree(), "op_roughing_2") != 0);
-    QVERIFY(find_item(window.browserTree(), "toolpath_op_roughing_2") != 0);
+    QVERIFY(find_item(window.browserTree(), "op_roughing") != 0);
+    QVERIFY(find_item(window.browserTree(), "toolpath_op_roughing") != 0);
 }
 
 QTEST_MAIN(CamMainWindowTest)

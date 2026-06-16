@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 
 from .llm_client import LlmClientError, LlmConfig, OpenAICompatibleClient
 from .planner import AgentPlanner, PlannerError, PlannerInput
+from .semantic_schemas import AgentPlanRequestModel
 
 
 class AgentBackendHandler(BaseHTTPRequestHandler):
@@ -44,13 +45,14 @@ class AgentBackendHandler(BaseHTTPRequestHandler):
 
         try:
             payload = self._read_json()
+            request = AgentPlanRequestModel.model_validate(payload)
             draft = self.planner.create_draft(
                 PlannerInput(
-                    trace_id=str(payload["trace_id"]),
-                    user_request=str(payload["user_request"]),
-                    target_object_id=str(payload["target_object_id"]),
-                    target_display_name=str(payload.get("target_display_name", "")),
-                    rejection_reason=str(payload.get("rejection_reason", "")),
+                    trace_id=request.trace_id,
+                    user_request=request.user_request,
+                    target_object_id=request.target_object_id,
+                    target_display_name=request.target_display_name,
+                    rejection_reason=request.rejection_reason,
                 )
             )
         except KeyError as exc:
@@ -58,6 +60,9 @@ class AgentBackendHandler(BaseHTTPRequestHandler):
             return
         except PlannerError as exc:
             self._send_json(422, {"error_code": exc.error_code, "message": exc.message})
+            return
+        except ValueError as exc:
+            self._send_json(400, {"error_code": "invalid_plan_request", "message": str(exc)})
             return
         except LlmClientError as exc:
             self._send_json(503, {"error_code": "llm_service_unavailable", "message": str(exc)})

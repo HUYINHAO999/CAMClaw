@@ -53,10 +53,39 @@ class AgentPlannerTests(unittest.TestCase):
         self.assertEqual("tool_010", draft["steps"][0]["inputs"]["tool_id"])
         self.assertEqual("只要粗加工，不要精加工", llm.last_request["rejection_reason"])
         self.assertIn("operation_type", llm.last_request["response_contract"])
-        self.assertIn("command_id", llm.last_request["response_contract"])
-        self.assertIn("schema_id", llm.last_request["response_contract"])
+        self.assertIn("semantic intent plan", llm.last_request["response_contract"])
+        self.assertIn("machine_feature", llm.last_request["response_contract"])
         self.assertIn("tool_006", llm.last_request["response_contract"])
         self.assertIn("smaller tool", llm.last_request["response_contract"])
+
+    def test_returns_validated_semantic_intent_plan(self):
+        llm = FakeLlmClient(
+            "{"
+            '"schema_version":"1",'
+            '"intents":[{'
+            '"id":"i1",'
+            '"intent":"set_toolpath_visibility",'
+            '"actions":[{'
+            '"visibility":"hide",'
+            '"target":{"kind":"query","object_type":"toolpath","scope":"matching","filters":{"operation_type":"pocket"}}'
+            "}]"
+            "}]"
+            "}"
+        )
+        planner = AgentPlanner(llm)
+
+        draft = planner.create_draft(
+            PlannerInput(
+                trace_id="trace_semantic_visibility",
+                user_request="帮我隐藏型腔铣的刀轨",
+                target_object_id="toolpath_op_drilling",
+            )
+        )
+
+        self.assertEqual("1", draft["schema_version"])
+        self.assertEqual("trace_semantic_visibility", draft["trace_id"])
+        self.assertEqual("pending_review", draft["status"])
+        self.assertEqual("set_toolpath_visibility", draft["intents"][0]["intent"])
 
     def test_tool_library_context_is_data_driven(self):
         tool_library = ToolLibrary(

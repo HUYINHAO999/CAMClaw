@@ -66,7 +66,7 @@ class OpenAICompatibleClient:
             raise LlmClientError("CAMCLAW_LLM_API_KEY is required.")
 
         instructions = (
-            "You produce CAM AgentPlanDraft inputs. "
+            "You produce CAM semantic intent plans. "
             + response_contract
         )
 

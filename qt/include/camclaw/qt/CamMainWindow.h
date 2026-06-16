@@ -4,6 +4,7 @@
 #include "camclaw/AgentPlanExecutor.h"
 #include "camclaw/HumanInLoopService.h"
 #include "camclaw/PlanDraftFactory.h"
+#include "camclaw/SemanticIntentPlan.h"
 #include "camclaw/SkillRuntime.h"
 #include "camclaw/qt/AgentDraftService.h"
 #include "camclaw/qt/BrowserTree.h"
@@ -64,6 +65,7 @@ private:
     SkillRuntime skill_runtime_;
     HumanInLoopService human_in_loop_service_;
     AgentPlanExecutor executor_;
+    SemanticIntentExecutor semantic_executor_;
     PlanDraftFactory draft_factory_;
     HttpAgentDraftService draft_service_;
     AgentDraftService* active_draft_service_;

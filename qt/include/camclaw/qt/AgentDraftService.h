@@ -1,8 +1,7 @@
 #ifndef CAMCLAW_QT_AGENT_DRAFT_SERVICE_H
 #define CAMCLAW_QT_AGENT_DRAFT_SERVICE_H
 
-#include "camclaw/AgentPlanDraft.h"
-#include "camclaw/AgentPlanDraftJsonCodec.h"
+#include "camclaw/SemanticIntentPlan.h"
 
 #include <QString>
 #include <QUrl>
@@ -21,7 +20,7 @@ struct AgentDraftServiceResult {
     AgentDraftServiceResult();
 
     bool ok;
-    AgentPlanDraft draft;
+    SemanticPlanDraft draft;
     QString error_code;
     QString message;
 };
@@ -45,7 +44,7 @@ private:
     QString quoteJson(const QString& value) const;
 
     QUrl endpoint_;
-    AgentPlanDraftJsonCodec codec_;
+    SemanticPlanDraftJsonCodec codec_;
 };
 
 } // namespace camclaw

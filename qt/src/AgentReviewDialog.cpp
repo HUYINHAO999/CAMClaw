@@ -47,7 +47,7 @@ AgentReviewDialog::AgentReviewDialog(
     const QString& target_object_id,
     const QString& target_display_name,
     AgentDraftService& draft_service,
-    AgentPlanExecutor& executor,
+    SemanticIntentExecutor& executor,
     HumanInLoopService* human_in_loop_service,
     QWidget* parent)
     : QDialog(parent),
@@ -270,7 +270,7 @@ void AgentReviewDialog::renderDraft()
 {
     trace_id_label_->setText(QString::fromUtf8("Trace: ") + fromStd(draft_.traceId()));
     draft_status_label_->setText(statusText(draft_.status()));
-    if (draft_.stepCount() == 0u) {
+    if (draft_.intentCount() == 0u) {
         step_label_->setText(QString::fromUtf8("请输入需求并生成草案。"));
         return;
     }
@@ -279,18 +279,26 @@ void AgentReviewDialog::renderDraft()
 
 void AgentReviewDialog::renderParameters()
 {
-    if (draft_.stepCount() == 0u) {
+    if (draft_.intentCount() == 0u) {
         for (QMap<QString, QLineEdit*>::iterator it = parameter_edits_.begin(); it != parameter_edits_.end(); ++it) {
             it.value()->clear();
             it.value()->setEnabled(false);
         }
         return;
     }
-    const SkillStepDraft& step = draft_.stepAt(0u);
+    const SemanticIntent& step = draft_.intentAt(0u);
     for (QMap<QString, QLineEdit*>::iterator it = parameter_edits_.begin(); it != parameter_edits_.end(); ++it) {
         it.value()->blockSignals(true);
-        it.value()->setText(fromStd(step.inputValue(toStd(it.key()))));
-        it.value()->setEnabled(draft_.status() == DraftStatus::PendingReview);
+        QString value;
+        if (it.key() == "operation_type" && step.target.filters.find("operation_type") != step.target.filters.end()) {
+            value = fromStd(step.target.filters.find("operation_type")->second);
+        } else if (it.key() == "visibility" && !step.visibility_actions.empty()) {
+            value = fromStd(step.visibility_actions[0].visibility);
+        } else if (it.key() == "scope" && !step.visibility_actions.empty()) {
+            value = fromStd(step.visibility_actions[0].target.scope);
+        }
+        it.value()->setText(value);
+        it.value()->setEnabled(false);
         it.value()->blockSignals(false);
     }
 }
@@ -313,14 +321,14 @@ void AgentReviewDialog::renderTrace()
 
 void AgentReviewDialog::renderControls()
 {
-    const bool editable = draft_.status() == DraftStatus::PendingReview;
-    const bool has_draft = draft_.stepCount() > 0u;
+    const bool editable = draft_.status() == SemanticDraftStatus::PendingReview;
+    const bool has_draft = draft_.intentCount() > 0u;
     confirm_button_->setEnabled(editable && has_draft);
     reject_button_->setEnabled(editable && has_draft);
     simulate_failure_button_->setEnabled(editable && has_draft);
     rejection_reason_edit_->setEnabled(editable && has_draft);
-    regenerate_button_->setEnabled(draft_.status() == DraftStatus::Rejected);
-    generate_button_->setEnabled(draft_.status() != DraftStatus::Confirmed);
+    regenerate_button_->setEnabled(draft_.status() == SemanticDraftStatus::Rejected);
+    generate_button_->setEnabled(draft_.status() != SemanticDraftStatus::Confirmed);
 }
 
 void AgentReviewDialog::generateDraft()
@@ -389,18 +397,11 @@ bool AgentReviewDialog::requestDraftFromBackend(const QString& prompt, const QSt
 
 void AgentReviewDialog::confirmDraft()
 {
-    if (draft_.status() != DraftStatus::PendingReview) {
+    if (draft_.status() != SemanticDraftStatus::PendingReview) {
         return;
     }
     draft_.confirm();
     const AgentPlanExecutionResult result = executor_.execute(draft_);
-    if (result.needs_clarification && requestClarificationAndResume(result)) {
-        render();
-        if (execution_succeeded_) {
-            accept();
-        }
-        return;
-    }
     setExecutionResult(result);
     render();
     if (execution_succeeded_) {
@@ -410,11 +411,11 @@ void AgentReviewDialog::confirmDraft()
 
 void AgentReviewDialog::rejectDraft()
 {
-    if (draft_.status() != DraftStatus::PendingReview) {
+    if (draft_.status() != SemanticDraftStatus::PendingReview) {
         return;
     }
     const QString reason = rejection_reason_edit_->toPlainText().trimmed();
-    draft_.reject(toStd(reason));
+    draft_.reject();
     setResultMessage(
         QString::fromUtf8("已拒绝"),
         QString::fromUtf8("{\n  \"ok\": false,\n  \"error_code\": \"draft_rejected\",\n  \"message\": ")
@@ -425,33 +426,20 @@ void AgentReviewDialog::rejectDraft()
 
 void AgentReviewDialog::simulateFailure()
 {
-    if (draft_.status() != DraftStatus::PendingReview) {
-        return;
-    }
-    draft_.editStepInput(0u, "stepover", "0");
-    draft_.confirm();
-    setExecutionResult(executor_.execute(draft_));
+    setResultMessage(
+        QString::fromUtf8("执行失败"),
+        QString::fromUtf8("{\n  \"ok\": false,\n  \"error_code\": \"invalid_argument\",\n  \"message\": \"模拟失败。\"\n}"));
     render();
 }
 
 void AgentReviewDialog::editParameter()
 {
-    if (draft_.status() != DraftStatus::PendingReview) {
-        return;
-    }
-    QObject* sender_object = sender();
-    for (QMap<QString, QLineEdit*>::const_iterator it = parameter_edits_.begin(); it != parameter_edits_.end(); ++it) {
-        if (it.value() == sender_object) {
-            draft_.editStepInput(0u, toStd(it.key()), toStd(it.value()->text()));
-            break;
-        }
-    }
     renderTrace();
 }
 
 void AgentReviewDialog::regenerateDraft()
 {
-    if (draft_.status() != DraftStatus::Rejected) {
+    if (draft_.status() != SemanticDraftStatus::Rejected) {
         return;
     }
     const QString reason = rejection_reason_edit_->toPlainText().trimmed();
@@ -502,80 +490,7 @@ void AgentReviewDialog::setExecutionResult(const AgentPlanExecutionResult& resul
 
 bool AgentReviewDialog::requestClarificationAndResume(const AgentPlanExecutionResult& result)
 {
-    if (human_in_loop_service_ == 0) {
-        setExecutionResult(result);
-        return false;
-    }
-
-    QDialog clarification_dialog(this);
-    clarification_dialog.setObjectName("humanInLoopDialog");
-    clarification_dialog.setWindowTitle(QString::fromUtf8("需要补充目标"));
-
-    QVBoxLayout* layout = new QVBoxLayout(&clarification_dialog);
-    QLabel* question = new QLabel(fromStd(result.clarification.question), &clarification_dialog);
-    question->setObjectName("humanInLoopQuestionLabel");
-    question->setWordWrap(true);
-    layout->addWidget(question);
-
-    QListWidget* candidate_list = new QListWidget(&clarification_dialog);
-    candidate_list->setObjectName("humanInLoopCandidateList");
-    for (std::size_t index = 0u; index < result.clarification.candidates.size(); ++index) {
-        const ClarificationCandidate& candidate = result.clarification.candidates[index];
-        QListWidgetItem* item = new QListWidgetItem(
-            fromStd(candidate.label)
-                + " / "
-                + fromStd(candidate.id)
-                + "  "
-                + fromStd(candidate.description),
-            candidate_list);
-        item->setData(Qt::UserRole, fromStd(candidate.id));
-    }
-    if (candidate_list->count() > 0) {
-        candidate_list->setCurrentRow(candidate_list->count() - 1);
-    }
-    layout->addWidget(candidate_list);
-
-    QLineEdit* free_text = new QLineEdit(&clarification_dialog);
-    free_text->setObjectName("humanInLoopFreeTextEdit");
-    free_text->setPlaceholderText(QString::fromUtf8("也可以输入：最后一个 / 第2个 / 工序名称"));
-    layout->addWidget(free_text);
-
-    QDialogButtonBox* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &clarification_dialog);
-    buttons->setObjectName("humanInLoopButtons");
-    layout->addWidget(buttons);
-    connect(buttons, SIGNAL(accepted()), &clarification_dialog, SLOT(accept()));
-    connect(buttons, SIGNAL(rejected()), &clarification_dialog, SLOT(reject()));
-
-    if (clarification_dialog.exec() != QDialog::Accepted) {
-        setResultMessage(
-            QString::fromUtf8("等待澄清"),
-            QString::fromUtf8("{\n  \"ok\": false,\n  \"error_code\": \"clarification_cancelled\",\n  \"message\": \"用户取消了目标澄清。\"\n}"));
-        return false;
-    }
-
-    ClarificationResponse response;
-    response.clarification_id = result.clarification.clarification_id;
-    const QString typed_text = free_text->text().trimmed();
-    if (!typed_text.isEmpty()) {
-        response.free_text = toStd(typed_text);
-    } else if (candidate_list->currentItem() != 0) {
-        response.selected_ids.push_back(toStd(candidate_list->currentItem()->data(Qt::UserRole).toString()));
-    }
-
-    const ClarificationResumeResult resume = human_in_loop_service_->submitResponse(response);
-    if (!resume.ok) {
-        setResultMessage(
-            QString::fromUtf8("澄清失败"),
-            QString::fromUtf8("{\n  \"ok\": false,\n  \"error_code\": ")
-                + quote(fromStd(resume.error_code))
-                + QString::fromUtf8(",\n  \"message\": ")
-                + quote(fromStd(resume.message))
-                + QString::fromUtf8("\n}"));
-        return false;
-    }
-
-    draft_ = resume.resumed_draft;
-    setExecutionResult(executor_.execute(draft_));
+    setExecutionResult(result);
     return true;
 }
 
@@ -586,12 +501,12 @@ void AgentReviewDialog::setResultMessage(const QString& status, const QString& b
     result_body_ = body;
 }
 
-QString AgentReviewDialog::statusText(DraftStatus status) const
+QString AgentReviewDialog::statusText(SemanticDraftStatus status) const
 {
-    if (status == DraftStatus::Confirmed) {
+    if (status == SemanticDraftStatus::Confirmed) {
         return QString::fromUtf8("已确认");
     }
-    if (status == DraftStatus::Rejected) {
+    if (status == SemanticDraftStatus::Rejected) {
         return QString::fromUtf8("已拒绝");
     }
     return QString::fromUtf8("待审核");
@@ -600,64 +515,65 @@ QString AgentReviewDialog::statusText(DraftStatus status) const
 QString AgentReviewDialog::draftStepText() const
 {
     QString text;
-    for (std::size_t index = 0; index < draft_.stepCount(); ++index) {
-        const SkillStepDraft& step = draft_.stepAt(index);
+    for (std::size_t index = 0; index < draft_.intentCount(); ++index) {
+        const SemanticIntent& step = draft_.intentAt(index);
         if (!text.isEmpty()) {
             text += "\n\n";
         }
         text += QString::number(static_cast<int>(index + 1u));
-        text += ". Skill: ";
-        text += fromStd(step.skillId());
+        text += ". Intent: ";
+        text += textForIntent(step);
         text += "\nTarget: ";
-        if (step.skillId() == "browser.setToolpathVisibility" && step.inputValue("scope") == "operation_type") {
-            text += QString::fromUtf8("工序类型 / ") + fromStd(step.inputValue("operation_type"));
-        } else if (step.skillId() == "browser.setToolpathVisibility" && step.inputValue("scope") == "list") {
-            text += QString::fromUtf8("刀轨列表 / ") + fromStd(step.inputValue("toolpath_ids"));
-        } else {
-            text += fromStd(step.inputValue("target_object_id"));
-        }
-        text += "\nCommand: ";
-        text += commandTextForSkill(step);
-        text += "\nInputs: ";
-        bool first = true;
-        const std::map<std::string, std::string>& inputs = step.inputs();
-        for (std::map<std::string, std::string>::const_iterator it = inputs.begin(); it != inputs.end(); ++it) {
-            if (!first) {
-                text += ", ";
+        if (step.target.kind == SemanticTargetKind::Query) {
+            text += QString::fromUtf8("query / ") + fromStd(step.target.object_type) + " / " + fromStd(step.target.scope);
+            std::map<std::string, std::string>::const_iterator operation_type = step.target.filters.find("operation_type");
+            if (operation_type != step.target.filters.end()) {
+                text += " / operation_type=" + fromStd(operation_type->second);
             }
-            first = false;
-            text += fromStd(it->first) + "=" + fromStd(it->second);
+        } else if (step.target.kind == SemanticTargetKind::Objects) {
+            text += QString::fromUtf8("objects / ");
+            for (std::size_t id_index = 0; id_index < step.target.object_ids.size(); ++id_index) {
+                if (id_index != 0u) {
+                    text += ",";
+                }
+                text += fromStd(step.target.object_ids[id_index]);
+            }
+        } else if (step.target.kind == SemanticTargetKind::Ref) {
+            text += QString::fromUtf8("ref / ") + fromStd(step.target.ref);
+        } else {
+            text += QString::fromUtf8("intent-specific");
+        }
+        if (!step.visibility_actions.empty()) {
+            text += "\nActions: ";
+            for (std::size_t action_index = 0; action_index < step.visibility_actions.size(); ++action_index) {
+                if (action_index != 0u) {
+                    text += "; ";
+                }
+                text += fromStd(step.visibility_actions[action_index].visibility);
+            }
         }
     }
     return text;
 }
 
-QString AgentReviewDialog::commandTextForSkill(const SkillStepDraft& step) const
+QString AgentReviewDialog::textForIntent(const SemanticIntent& step) const
 {
-    if (step.skillId() == "browser.createOperation") {
-        return "browser.createOperation";
+    if (step.kind == SemanticIntentKind::MachineFeature) {
+        return "machine_feature";
     }
-    if (step.skillId() == "browser.updateOperation") {
-        if (step.inputValue("recompute_toolpath") == "true") {
-            return "browser.updateOperation -> browser.generateToolpath";
-        }
-        return "browser.updateOperation";
+    if (step.kind == SemanticIntentKind::CreateOperations) {
+        return "create_operations";
     }
-    if (step.skillId() == "browser.generateToolpath") {
-        return "browser.generateToolpath";
+    if (step.kind == SemanticIntentKind::EditOperation) {
+        return "edit_operation";
     }
-    if (step.skillId() == "browser.setToolpathVisibility") {
-        const QString visibility = fromStd(step.inputValue("visibility"));
-        const QString scope = fromStd(step.inputValue("scope"));
-        return "browser.setToolpathVisibility(" + visibility + ", " + scope + ")";
+    if (step.kind == SemanticIntentKind::RegenerateToolpath) {
+        return "regenerate_toolpath";
     }
-    if (step.skillId() == "browser.create_roughing_operation") {
-        return "browser.create_roughing_operation";
+    if (step.kind == SemanticIntentKind::SetToolpathVisibility) {
+        return "set_toolpath_visibility";
     }
-    if (step.skillId() == "browser.create_roughing_operation_and_generate_toolpath") {
-        return "browser.create_roughing_operation -> browser.generate_toolpath";
-    }
-    return QString::fromUtf8("unsupported");
+    return "unknown";
 }
 
 QString AgentReviewDialog::joinTraceEvents() const
