@@ -188,6 +188,40 @@ static int executor_ignores_non_operation_current_target_for_operation_type_scop
     return EXIT_SUCCESS;
 }
 
+static int executor_does_not_treat_current_operation_as_precise_target_for_operation_type_scope()
+{
+    camclaw::Repository repository;
+    repository.save(pocket_operation("op_pocket_001", "tool_010", "2.0"));
+    repository.save(pocket_operation("op_pocket_002", "tool_016", "1.0"));
+    camclaw::BrowserConsole browser_console(repository);
+    camclaw::ActionGateway gateway(repository, browser_console);
+    camclaw::SkillRuntime skill_runtime(gateway);
+    camclaw::HumanInLoopService human_in_loop;
+    camclaw::AgentPlanExecutor executor(skill_runtime, repository, human_in_loop);
+
+    std::map<std::string, std::string> inputs;
+    inputs["target_object_id"] = "op_pocket_001";
+    inputs["scope"] = "operation_type";
+    inputs["operation_type"] = "pocket";
+    inputs["parameter_name"] = "stepover";
+    inputs["parameter_value"] = "0.8";
+    inputs["recompute_toolpath"] = "true";
+    inputs["schema_id"] = "browser.updateOperation.v1";
+
+    camclaw::AgentPlanDraft draft("trace_hil_operation_context");
+    draft.addSkillStep(camclaw::SkillStepDraft("browser.updateOperation", inputs));
+    draft.confirm();
+
+    const camclaw::AgentPlanExecutionResult result = executor.execute(draft);
+
+    REQUIRE_TRUE(!result.ok);
+    REQUIRE_TRUE(result.needs_clarification);
+    REQUIRE_EQ(std::string("needs_clarification"), result.error_code);
+    REQUIRE_EQ(2u, result.clarification.candidates.size());
+
+    return EXIT_SUCCESS;
+}
+
 int main()
 {
     int status = resolver_returns_unique_operation_without_human_loop();
@@ -211,6 +245,11 @@ int main()
     }
 
     status = executor_ignores_non_operation_current_target_for_operation_type_scope();
+    if (status != EXIT_SUCCESS) {
+        return status;
+    }
+
+    status = executor_does_not_treat_current_operation_as_precise_target_for_operation_type_scope();
     if (status != EXIT_SUCCESS) {
         return status;
     }

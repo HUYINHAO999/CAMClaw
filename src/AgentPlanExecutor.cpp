@@ -139,12 +139,7 @@ bool AgentPlanExecutor::resolveDraftStepTarget(
             || step.skillId() == "browser.updateOperation"
             || step.skillId() == "browser.generateToolpath")) {
         std::map<std::string, std::string> query;
-        const CamObject target = repository_->get(step.inputValue("target_object_id"));
-        if (target.object_type == ObjectType::Operation) {
-            query["target_object_id"] = target.object_id;
-        } else {
-            query["operation_type"] = step.inputValue("operation_type");
-        }
+        query["operation_type"] = step.inputValue("operation_type");
 
         TargetResolver resolver(*repository_);
         const TargetResolutionResult resolution = resolver.resolveOperation(query);
