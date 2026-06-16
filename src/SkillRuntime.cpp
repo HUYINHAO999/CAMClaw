@@ -64,6 +64,40 @@ bool operationTypeMatchesFilter(const std::string& operation_type, const std::st
     return operation_type == filter;
 }
 
+std::string formatNumber(double value)
+{
+    std::ostringstream stream;
+    stream << value;
+    return stream.str();
+}
+
+std::string resolveRelativeParameterValue(
+    const CamObject& operation,
+    const std::string& parameter_name,
+    const std::string& parameter_value)
+{
+    if (parameter_name != "stepover") {
+        return parameter_value;
+    }
+
+    if (parameter_value != "smaller" && parameter_value != "更小" && parameter_value != "小一些") {
+        return parameter_value;
+    }
+
+    const std::map<std::string, std::string>::const_iterator current = operation.attributes.find(parameter_name);
+    if (current == operation.attributes.end()) {
+        return parameter_value;
+    }
+
+    char* end = 0;
+    const double parsed = std::strtod(current->second.c_str(), &end);
+    if (end == current->second.c_str() || *end != '\0' || parsed <= 0.0) {
+        return parameter_value;
+    }
+
+    return formatNumber(parsed * 0.5);
+}
+
 } // namespace
 
 CommandRegistry CommandRegistry::browserDefaults()
@@ -256,13 +290,20 @@ ConsoleCommandResult BrowserConsole::updateOperation(const ConsoleCommandRequest
     ConsoleCommandResult result;
     std::map<std::string, std::string>::const_iterator parameter_name = request.args.find("parameter_name");
     std::map<std::string, std::string>::const_iterator parameter_value = request.args.find("parameter_value");
+    const std::string parameter_name_value = parameter_name == request.args.end() ? std::string() : parameter_name->second;
+    const std::string raw_parameter_value = parameter_value == request.args.end() ? std::string() : parameter_value->second;
+    const CamObject operation = repository_.get(request.target_object_id);
+    const std::string resolved_parameter_value = resolveRelativeParameterValue(
+        operation,
+        parameter_name_value,
+        raw_parameter_value);
 
     std::string error_code;
     std::string message;
     if (!operation_service_.updateOperationParameter(
             request.target_object_id,
-            parameter_name == request.args.end() ? std::string() : parameter_name->second,
-            parameter_value == request.args.end() ? std::string() : parameter_value->second,
+            parameter_name_value,
+            resolved_parameter_value,
             error_code,
             message)) {
         result.error_code = error_code;

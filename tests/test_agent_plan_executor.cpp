@@ -198,6 +198,36 @@ static int command_draft_updates_operation_and_recomputes_toolpath()
     return EXIT_SUCCESS;
 }
 
+static int command_draft_resolves_relative_stepover_before_update()
+{
+    camclaw::Repository repository;
+    camclaw::CamObject operation("op_roughing_feature_001", camclaw::ObjectType::Operation, "型腔铣");
+    operation.attributes["stepover"] = "2.0";
+    repository.save(operation);
+    camclaw::BrowserConsole browser_console(repository);
+    camclaw::ActionGateway gateway(repository, browser_console);
+    camclaw::SkillRuntime skill_runtime(gateway);
+    camclaw::AgentPlanExecutor executor(skill_runtime);
+
+    std::map<std::string, std::string> inputs;
+    inputs["target_object_id"] = "op_roughing_feature_001";
+    inputs["parameter_name"] = "stepover";
+    inputs["parameter_value"] = "smaller";
+    inputs["recompute_toolpath"] = "false";
+    inputs["schema_id"] = "browser.updateOperation.v1";
+
+    camclaw::AgentPlanDraft draft("trace_execute_relative_stepover");
+    draft.addSkillStep(camclaw::SkillStepDraft("browser.updateOperation", inputs));
+    draft.confirm();
+
+    const camclaw::AgentPlanExecutionResult result = executor.execute(draft);
+
+    REQUIRE_TRUE(result.ok);
+    REQUIRE_EQ(std::string("1"), repository.get("op_roughing_feature_001").attributes["stepover"]);
+
+    return EXIT_SUCCESS;
+}
+
 static int command_draft_executes_visibility_action_sequence()
 {
     camclaw::Repository repository;
@@ -275,6 +305,11 @@ int main()
     }
 
     status = command_draft_updates_operation_and_recomputes_toolpath();
+    if (status != EXIT_SUCCESS) {
+        return status;
+    }
+
+    status = command_draft_resolves_relative_stepover_before_update();
     if (status != EXIT_SUCCESS) {
         return status;
     }
