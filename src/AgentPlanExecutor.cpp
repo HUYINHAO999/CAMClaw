@@ -133,14 +133,18 @@ bool AgentPlanExecutor::resolveDraftStepTarget(
     }
 
     const SkillStepDraft& step = draft.stepAt(step_index);
-    if (step.inputValue("target_object_id").empty()
-        && step.inputValue("scope") == "operation_type"
+    if (step.inputValue("scope") == "operation_type"
         && !step.inputValue("operation_type").empty()
         && (step.skillId() == "browser.openOperationEditor"
             || step.skillId() == "browser.updateOperation"
             || step.skillId() == "browser.generateToolpath")) {
         std::map<std::string, std::string> query;
-        query["operation_type"] = step.inputValue("operation_type");
+        const CamObject target = repository_->get(step.inputValue("target_object_id"));
+        if (target.object_type == ObjectType::Operation) {
+            query["target_object_id"] = target.object_id;
+        } else {
+            query["operation_type"] = step.inputValue("operation_type");
+        }
 
         TargetResolver resolver(*repository_);
         const TargetResolutionResult resolution = resolver.resolveOperation(query);
